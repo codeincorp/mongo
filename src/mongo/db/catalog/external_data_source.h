@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2022-present MongoDB, Inc.
+ *    Copyright (C) 2024-present Codein, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -27,35 +27,13 @@
  *    it in the license file.
  */
 
-#include "mongo/db/storage/external_record_store.h"
+#pragma once
 
-#include <boost/move/utility_core.hpp>
-#include <boost/optional/optional.hpp>
-
-#include "mongo/db/operation_context.h"
-#include "mongo/db/storage/multi_bson_stream_cursor.h"
-#include "mongo/db/storage/record_store.h"
+#include "mongo/base/status.h"
+#include "mongo/base/string_data.h"
 
 namespace mongo {
+static constexpr auto kUrlProtocolFile = "file://"_sd;
 
-// 'ident' is an identifer to WT table and a virtual collection does not have any persistent data
-// in WT. So, we set the "dummy" ident for a virtual collection.
-ExternalRecordStore::ExternalRecordStore(const NamespaceString& ns,
-                                         boost::optional<UUID> uuid,
-                                         const VirtualCollectionOptions& vopts)
-    : RecordStore(uuid, /*identName=*/"dummy"_sd, /*isCapped=*/false), _vopts(vopts), _ns(ns) {}
-
-/**
- * Returns a MultiBsonStreamCursor for this record store. Reverse scans are not currently supported
- * for this record store type, so if 'forward' is false this asserts.
- */
-std::unique_ptr<SeekableRecordCursor> ExternalRecordStore::getCursor(OperationContext* opCtx,
-                                                                     bool forward) const {
-    if (forward) {
-        return std::make_unique<MultiBsonStreamCursor>(getOptions());
-    }
-    tasserted(6968302, "MultiBsonStreamCursor does not support reverse scans");
-    return nullptr;
-}
-
+Status validateUrl(StringData url);
 }  // namespace mongo
