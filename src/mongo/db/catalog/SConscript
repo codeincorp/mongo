@@ -39,6 +39,18 @@ env.Library(
 )
 
 env.Library(
+    target='external_data_source_options',
+    source=[
+        'external_data_source.cpp',
+        'external_data_source_options.idl',
+    ],
+    LIBDEPS=[],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/server_base',
+    ],
+)
+
+env.Library(
     target='document_validation',
     source=[
         'document_validation.cpp',

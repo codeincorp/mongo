@@ -65,13 +65,13 @@ env.Library(
     source=[
         'aggregate_command.idl',
         'aggregation_request_helper.cpp',
-        'external_data_source_option.idl',
         'name_expression_parser.cpp',
         'name_expression.idl',
         'query_request_conversion.cpp',
     ],
     LIBDEPS=[
         '$BUILD_DIR/mongo/db/auth/security_token',
+        '$BUILD_DIR/mongo/db/catalog/external_data_source_options',
         '$BUILD_DIR/mongo/db/exec/document_value/document_value',
         '$BUILD_DIR/mongo/db/query/command_request_response',
         '$BUILD_DIR/mongo/db/query/common_query_enums_and_helpers',

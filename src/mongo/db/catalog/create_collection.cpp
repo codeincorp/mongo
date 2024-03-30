@@ -56,9 +56,9 @@
 #include "mongo/db/catalog/collection_options.h"
 #include "mongo/db/catalog/database.h"
 #include "mongo/db/catalog/database_holder.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/catalog/index_key_validate.h"
 #include "mongo/db/catalog/unique_collection_name.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
 #include "mongo/db/catalog_raii.h"
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/create_gen.h"
@@ -799,6 +799,10 @@ Status createCollection(OperationContext* opCtx,
 }
 
 Status createCollection(OperationContext* opCtx, const CreateCommand& cmd) {
+    if (auto vopts = cmd.getVirtual()) {
+        return createVirtualCollection(opCtx, cmd.getNamespace(), *vopts);
+    }
+
     auto options = CollectionOptions::fromCreateCommand(cmd);
     auto idIndex = std::exchange(options.idIndex, {});
     bool hasExplicitlyDisabledClustering = cmd.getClusteredIndex() &&
@@ -1041,9 +1045,6 @@ Status createCollection(OperationContext* opCtx,
 Status createVirtualCollection(OperationContext* opCtx,
                                const NamespaceString& ns,
                                const VirtualCollectionOptions& vopts) {
-    tassert(6968504,
-            "Virtual collection is available when the compute mode is enabled",
-            computeModeEnabled);
     CollectionOptions options;
     options.setNoIdIndex();
     return _createCollection(opCtx, ns, options, boost::none, vopts);
