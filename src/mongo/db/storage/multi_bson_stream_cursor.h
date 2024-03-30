@@ -39,7 +39,7 @@
 #include <boost/optional/optional.hpp>
 #include <fmt/format.h>
 
-#include "mongo/db/catalog/virtual_collection_options.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/record_id.h"
 #include "mongo/db/storage/input_stream.h"
@@ -51,10 +51,10 @@ namespace mongo {
 class MultiBsonStreamCursor : public SeekableRecordCursor {
 public:
     MultiBsonStreamCursor(const VirtualCollectionOptions& vopts)
-        : _numStreams(vopts.dataSources.size()), _vopts(vopts) {
+        : _numStreams(vopts.getDataSources().size()), _vopts(vopts) {
         using namespace fmt::literals;
         tassert(6968310, "_numStreams {} <= 0"_format(_numStreams), _numStreams > 0);
-        _streamReader = getInputStream(_vopts.dataSources[_streamIdx].url);
+        _streamReader = getInputStream(_vopts.getDataSources()[_streamIdx].getUrl().toString());
     }
 
     boost::optional<Record> next() override;

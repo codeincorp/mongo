@@ -35,7 +35,7 @@
 #include "mongo/db/catalog/collection.h"
 #include "mongo/db/catalog/collection_catalog.h"
 #include "mongo/db/catalog/collection_options.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/database_name.h"
 #include "mongo/db/dbcommands_gen.h"
 #include "mongo/db/namespace_string.h"

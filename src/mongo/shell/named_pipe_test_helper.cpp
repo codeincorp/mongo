@@ -33,7 +33,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <new>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,16 +45,13 @@
 #include "mongo/bson/bsonmisc.h"
 #include "mongo/bson/bsonobj.h"
 #include "mongo/bson/bsonobjbuilder.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
-#include "mongo/db/pipeline/external_data_source_option_gen.h"
-#include "mongo/db/storage/input_stream.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/storage/multi_bson_stream_cursor.h"
 #include "mongo/db/storage/named_pipe.h"
 #include "mongo/db/storage/record_data.h"
 #include "mongo/db/storage/record_store.h"
 #include "mongo/logv2/log.h"
 #include "mongo/logv2/log_attr.h"
-#include "mongo/logv2/log_component.h"
 #include "mongo/platform/random.h"
 #include "mongo/stdx/thread.h"
 #include "mongo/util/assert_util.h"
@@ -115,11 +111,8 @@ BSONObj NamedPipeHelper::readFromPipes(const std::vector<std::string>& pipeRelat
     // Create metadata describing the pipes and a MultiBsonStreamCursor to read them.
     VirtualCollectionOptions vopts;
     for (const std::string& pipeRelativePath : pipeRelativePaths) {
-        ExternalDataSourceMetadata meta(
-            (ExternalDataSourceMetadata::kUrlProtocolFile + pipeRelativePath),
-            StorageTypeEnum::pipe,
-            FileTypeEnum::bson);
-        vopts.dataSources.emplace_back(meta);
+        vopts.getDataSources().emplace_back(
+            kUrlProtocolFile + pipeRelativePath, StorageTypeEnum::pipe, FileTypeEnum::bson);
     }
     MultiBsonStreamCursor msbc(vopts);
 

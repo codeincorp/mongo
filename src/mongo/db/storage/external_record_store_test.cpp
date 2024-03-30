@@ -45,8 +45,7 @@
 #include "mongo/bson/bsonmisc.h"
 #include "mongo/bson/bsonobj.h"
 #include "mongo/bson/bsonobjbuilder.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
-#include "mongo/db/pipeline/external_data_source_option_gen.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/record_id.h"
 #include "mongo/db/storage/input_stream.h"
 #include "mongo/db/storage/multi_bson_stream_cursor.h"
@@ -275,11 +274,8 @@ TEST_F(ExternalRecordStoreTest, NamedPipeMultiplePipes1) {
     // Create metadata describing the pipes and a MultiBsonStreamCursor to read them.
     VirtualCollectionOptions vopts;
     for (int pipeIdx = 0; pipeIdx < kNumPipes; ++pipeIdx) {
-        ExternalDataSourceMetadata meta(
-            (ExternalDataSourceMetadata::kUrlProtocolFile + pipePaths[pipeIdx]),
-            StorageTypeEnum::pipe,
-            FileTypeEnum::bson);
-        vopts.dataSources.emplace_back(meta);
+        vopts.getDataSources().emplace_back(
+            kUrlProtocolFile + pipePaths[pipeIdx], StorageTypeEnum::pipe, FileTypeEnum::bson);
     }
     MultiBsonStreamCursor msbc = MultiBsonStreamCursor(vopts);
 
@@ -376,11 +372,8 @@ TEST_F(ExternalRecordStoreTest, NamedPipeMultiplePipes2) {
     // Create metadata describing the pipes and a MultiBsonStreamCursor to read them.
     VirtualCollectionOptions vopts;
     for (int pipeIdx = 0; pipeIdx < kNumPipes; ++pipeIdx) {
-        ExternalDataSourceMetadata meta(
-            (ExternalDataSourceMetadata::kUrlProtocolFile + pipePaths[pipeIdx]),
-            StorageTypeEnum::pipe,
-            FileTypeEnum::bson);
-        vopts.dataSources.emplace_back(meta);
+        vopts.getDataSources().emplace_back(
+            kUrlProtocolFile + pipePaths[pipeIdx], StorageTypeEnum::pipe, FileTypeEnum::bson);
     }
     MultiBsonStreamCursor msbc(vopts);
 
@@ -462,11 +455,8 @@ TEST_F(ExternalRecordStoreTest, NamedPipeMultiplePipes3) {
     // Create metadata describing the pipes and a MultiBsonStreamCursor to read them.
     VirtualCollectionOptions vopts;
     for (int pipeIdx = 0; pipeIdx < kNumPipes; ++pipeIdx) {
-        ExternalDataSourceMetadata meta(
-            (ExternalDataSourceMetadata::kUrlProtocolFile + pipePaths[pipeIdx]),
-            StorageTypeEnum::pipe,
-            FileTypeEnum::bson);
-        vopts.dataSources.emplace_back(meta);
+        vopts.getDataSources().emplace_back(
+            kUrlProtocolFile + pipePaths[pipeIdx], StorageTypeEnum::pipe, FileTypeEnum::bson);
     }
     MultiBsonStreamCursor msbc(vopts);
 
@@ -543,11 +533,8 @@ TEST_F(ExternalRecordStoreTest, NamedPipeMultiplePipes4) {
     // Create metadata describing the pipes and a MultiBsonStreamCursor to read them.
     VirtualCollectionOptions vopts;
     for (int pipeIdx = 0; pipeIdx < kNumPipes; ++pipeIdx) {
-        ExternalDataSourceMetadata meta(
-            (ExternalDataSourceMetadata::kUrlProtocolFile + pipePaths[pipeIdx]),
-            StorageTypeEnum::pipe,
-            FileTypeEnum::bson);
-        vopts.dataSources.emplace_back(meta);
+        vopts.getDataSources().emplace_back(
+            kUrlProtocolFile + pipePaths[pipeIdx], StorageTypeEnum::pipe, FileTypeEnum::bson);
     }
     MultiBsonStreamCursor msbc(vopts);
 

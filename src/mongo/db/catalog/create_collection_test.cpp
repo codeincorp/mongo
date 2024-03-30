@@ -48,8 +48,8 @@
 #include "mongo/db/catalog/collection_write_path.h"
 #include "mongo/db/catalog/create_collection.h"
 #include "mongo/db/catalog/database.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/catalog/virtual_collection_impl.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
 #include "mongo/db/catalog_raii.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands/create_gen.h"
@@ -58,7 +58,6 @@
 #include "mongo/db/concurrency/lock_manager_defs.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/namespace_string.h"
-#include "mongo/db/pipeline/external_data_source_option_gen.h"
 #include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/db/repl/member_state.h"
 #include "mongo/db/repl/oplog.h"
@@ -460,8 +459,8 @@ TEST_F(CreateCollectionTest, ValidationDisabledForTemporaryReshardingCollection)
     ASSERT_OK(status);
 }
 
-const auto kValidUrl1 = ExternalDataSourceMetadata::kUrlProtocolFile + "named_pipe1"s;
-const auto kValidUrl2 = ExternalDataSourceMetadata::kUrlProtocolFile + "named_pipe2"s;
+const auto kValidUrl1 = kUrlProtocolFile + "named_pipe1"s;
+const auto kValidUrl2 = kUrlProtocolFile + "named_pipe2"s;
 
 TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithOneSource) {
     NamespaceString vcollNss = NamespaceString::createNamespaceString_forTest("myDb", "vcoll.name");
@@ -469,7 +468,8 @@ TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithOneSource) {
 
     Lock::GlobalLock lk(opCtx.get(), MODE_X);  // Satisfy low-level locking invariants.
     VirtualCollectionOptions reqVcollOpts;
-    reqVcollOpts.dataSources.emplace_back(kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson);
+    reqVcollOpts.getDataSources().emplace_back(
+        kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson);
     ASSERT_OK(createVirtualCollection(opCtx.get(), vcollNss, reqVcollOpts));
     ASSERT_TRUE(getVirtualCollection(opCtx.get(), vcollNss));
 
@@ -477,11 +477,11 @@ TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithOneSource) {
               stdx::to_underlying(CollectionOptions::NO));
 
     auto vcollOpts = getVirtualCollectionOptions(opCtx.get(), vcollNss);
-    ASSERT_EQ(vcollOpts.dataSources.size(), 1);
-    ASSERT_EQ(vcollOpts.dataSources[0].url, kValidUrl1);
-    ASSERT_EQ(stdx::to_underlying(vcollOpts.dataSources[0].storageType),
+    ASSERT_EQ(vcollOpts.getDataSources().size(), 1);
+    ASSERT_EQ(vcollOpts.getDataSources()[0].getUrl(), kValidUrl1);
+    ASSERT_EQ(stdx::to_underlying(vcollOpts.getDataSources()[0].getStorageType()),
               stdx::to_underlying(StorageTypeEnum::pipe));
-    ASSERT_EQ(stdx::to_underlying(vcollOpts.dataSources[0].fileType),
+    ASSERT_EQ(stdx::to_underlying(vcollOpts.getDataSources()[0].getFileType()),
               stdx::to_underlying(FileTypeEnum::bson));
 }
 
@@ -491,8 +491,10 @@ TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithMultiSource) {
 
     Lock::GlobalLock lk(opCtx.get(), MODE_X);  // Satisfy low-level locking invariants.
     VirtualCollectionOptions reqVcollOpts;
-    reqVcollOpts.dataSources.emplace_back(kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson);
-    reqVcollOpts.dataSources.emplace_back(kValidUrl2, StorageTypeEnum::pipe, FileTypeEnum::bson);
+    reqVcollOpts.getDataSources().emplace_back(
+        kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson);
+    reqVcollOpts.getDataSources().emplace_back(
+        kValidUrl2, StorageTypeEnum::pipe, FileTypeEnum::bson);
 
     ASSERT_OK(createVirtualCollection(opCtx.get(), vcollNss, reqVcollOpts));
     ASSERT_TRUE(getVirtualCollection(opCtx.get(), vcollNss));
@@ -501,68 +503,14 @@ TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithMultiSource) {
               stdx::to_underlying(CollectionOptions::NO));
 
     auto vcollOpts = getVirtualCollectionOptions(opCtx.get(), vcollNss);
-    ASSERT_EQ(vcollOpts.dataSources.size(), 2);
+    ASSERT_EQ(vcollOpts.getDataSources().size(), 2);
     for (int i = 0; i < 2; ++i) {
-        ASSERT_EQ(vcollOpts.dataSources[i].url, reqVcollOpts.dataSources[i].url);
-        ASSERT_EQ(stdx::to_underlying(vcollOpts.dataSources[i].storageType),
+        ASSERT_EQ(vcollOpts.getDataSources()[i].getUrl(),
+                  reqVcollOpts.getDataSources()[i].getUrl());
+        ASSERT_EQ(stdx::to_underlying(vcollOpts.getDataSources()[i].getStorageType()),
                   stdx::to_underlying(StorageTypeEnum::pipe));
-        ASSERT_EQ(stdx::to_underlying(vcollOpts.dataSources[i].fileType),
+        ASSERT_EQ(stdx::to_underlying(vcollOpts.getDataSources()[i].getFileType()),
                   stdx::to_underlying(FileTypeEnum::bson));
-    }
-}
-
-TEST_F(CreateVirtualCollectionTest, InvalidVirtualCollectionOptions) {
-    using namespace fmt::literals;
-
-    NamespaceString vcollNss = NamespaceString::createNamespaceString_forTest("myDb", "vcoll.name");
-    auto opCtx = makeOpCtx();
-
-    Lock::GlobalLock lk(opCtx.get(), MODE_X);  // Satisfy low-level locking invariants.
-
-    {
-        bool exceptionOccurred = false;
-        VirtualCollectionOptions reqVcollOpts;
-        constexpr auto kInvalidUrl = "fff://abc/named_pipe"_sd;
-        try {
-            reqVcollOpts.dataSources.emplace_back(
-                kInvalidUrl, StorageTypeEnum::pipe, FileTypeEnum::bson);
-        } catch (const DBException&) {
-            exceptionOccurred = true;
-        }
-
-        ASSERT_TRUE(exceptionOccurred)
-            << "Invalid 'url': {} must fail but succeeded"_format(kInvalidUrl);
-    }
-
-    {
-        bool exceptionOccurred = false;
-        VirtualCollectionOptions reqVcollOpts;
-        constexpr auto kInvalidStorageTypeEnum = StorageTypeEnum(2);
-        try {
-            reqVcollOpts.dataSources.emplace_back(
-                kValidUrl1, kInvalidStorageTypeEnum, FileTypeEnum::bson);
-        } catch (const DBException&) {
-            exceptionOccurred = true;
-        }
-
-        ASSERT_TRUE(exceptionOccurred)
-            << "Unknown 'storageType': {} must fail but succeeded"_format(
-                   stdx::to_underlying(kInvalidStorageTypeEnum));
-    }
-
-    {
-        bool exceptionOccurred = false;
-        VirtualCollectionOptions reqVcollOpts;
-        constexpr auto kInvalidFileTypeEnum = FileTypeEnum(2);
-        try {
-            reqVcollOpts.dataSources.emplace_back(
-                kValidUrl1, StorageTypeEnum::pipe, kInvalidFileTypeEnum);
-        } catch (const DBException&) {
-            exceptionOccurred = true;
-        }
-
-        ASSERT_TRUE(exceptionOccurred) << "Unknown 'fileType': {} must fail but succeeded"_format(
-            stdx::to_underlying(kInvalidFileTypeEnum));
     }
 }
 }  // namespace

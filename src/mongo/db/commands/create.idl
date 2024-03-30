@@ -37,6 +37,7 @@ imports:
     - "mongo/db/auth/action_type.idl"
     - "mongo/db/catalog/collection_options.idl"
     - "mongo/db/catalog/clustered_collection_options.idl"
+    - "mongo/db/catalog/external_data_source_options.idl"
     - "mongo/db/timeseries/timeseries.idl"
     - "mongo/db/pipeline/change_stream_pre_and_post_images_options.idl"
 
@@ -51,10 +52,10 @@ structs:
                 type: string
                 optional: true
                 stability: stable
-    
+
     CreateCollectionRequest:
         description: "Base request to create a collection"
-        strict: true 
+        strict: true
         fields:
             capped:
                 description: "Specify true to create a capped collection. If you specify true, you
@@ -189,7 +190,12 @@ structs:
                 description: "DEPRECATED"
                 type: safeInt64
                 optional: true
-                stability: unstable     
+                stability: unstable
+            virtual:
+                description: "The options to create a virtual collection with."
+                type: VirtualCollectionOptions
+                optional: true
+                stability: unstable
 
 commands:
     create:
