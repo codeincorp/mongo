@@ -166,19 +166,25 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
 }
 
 /**
- * Returns an input stream for a named pipe mapped from 'url'.
+ * Returns an input stream corresponding to the current '_streamIdx'.
  *
  * While creating an input stream, it strips off the file protocol part from the 'url'.
  */
-std::unique_ptr<InputStream<NamedPipeInput>> MultiBsonStreamCursor::getInputStream(
-    const std::string& url) {
+std::unique_ptr<InputStream> MultiBsonStreamCursor::getInputStream() {
+    auto&& dataSource = _vopts.getDataSources()[_streamIdx];
+    auto url = dataSource.getUrl().toString();
     auto filePathPos = url.find(kUrlProtocolFile.toString());
     tassert(
         ErrorCodes::BadValue, "Invalid file url: {}"_format(url), filePathPos != std::string::npos);
 
     auto filePathStr = url.substr(filePathPos + kUrlProtocolFile.size());
 
-    return std::make_unique<InputStream<NamedPipeInput>>(filePathStr);
+    if (dataSource.getStorageType() == StorageTypeEnum::pipe &&
+        dataSource.getFileType() == FileTypeEnum::bson) {
+        return std::make_unique<InputStreamImpl<NamedPipeInput>>(filePathStr);
+    } else {
+        uasserted(200000600, "Support only BSON data over a named pipe");
+    }
 }
 
 /**
@@ -193,7 +199,7 @@ boost::optional<Record> MultiBsonStreamCursor::next() {
         }
         ++_streamIdx;
         if (_streamIdx < _numStreams) {
-            _streamReader = getInputStream(_vopts.getDataSources()[_streamIdx].getUrl().toString());
+            _streamReader = getInputStream();
         }
     }
     return boost::none;
