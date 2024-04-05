@@ -582,6 +582,40 @@ env.CppUnitTest(
 )
 
 env.Library(
+    target='csv_file',
+    source=[
+        'csv_file.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/query/query_knobs',
+        '$BUILD_DIR/mongo/db/server_base',
+    ],
+    LIBDEPS_PRIVATE=[],
+)
+
+env.CppUnitTest(
+    target='csv_file_test',
+    source=[
+        'csv_file_test.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/server_base',
+        'csv_file',
+    ],
+)
+
+csv_reader_test = env.Program(
+    target='csv_reader_test',
+    source=[
+        'csv_file_test.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/query/query_knobs',
+        '$BUILD_DIR/mongo/db/server_base',
+    ],
+)
+
+env.Library(
     target='durable_catalog',
     source=[
         'durable_catalog.cpp',
