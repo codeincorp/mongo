@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <vector>
 
 #include "csv_file.h"
@@ -7,10 +8,15 @@
 namespace mongo {
 using namespace fmt::literals;
 
-class CsvFileInputTest : public unittest::Test {};
+class CsvFileInputTest : public unittest::Test {
+protected:
+    void setUp() override {
+        system("cp -rn src/mongo/db/storage/csv_test /tmp/");
+    }
+};
 
 TEST_F(CsvFileInputTest, CsvBasicRead) {
-    CsvFileInput input("mongo_csv_test/basicReadData.csv", "mongo_csv_test/basicReadHeader.txt");
+    CsvFileInput input("csv_test/basicRead.csv", "csv_test/basicRead.txt");
 
     std::vector<mongo::BSONObj> expected = {fromjson(R"(
 {
@@ -299,9 +305,7 @@ TEST_F(CsvFileInputTest, AbsentField) {
             correct: false
         })")};
 
-    std::cout << "error here" << std::endl;
-
-    CsvFileInput input("mongo_csv_test/absentField.csv", "mongo_csv_test/absentField.txt");
+    CsvFileInput input("csv_test/absentField.csv", "csv_test/absentField.txt");
     input.open();
 
     int bufSize = 250;
@@ -315,10 +319,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     input.close();
 }
 
-// make separate test cases for bad long, bad int, bad string, bad bool, and so on?
-TEST_F(CsvFileInputTest, FailByBadValueOID) {
-    // ASSERT_THROWS(mongo::OID("This ain\'t 12 bytes"), DBException);
-    CsvFileInput input("mongo_csv_test/badOid.csv", "mongo_csv_test/badOid.txt");
+TEST_F(CsvFileInputTest, FailByBadOID) {
+    CsvFileInput input("csv_test/badOid.csv", "csv_test/badOid.txt");
     input.open();
 
     int bufSize = 100;
@@ -331,49 +333,96 @@ TEST_F(CsvFileInputTest, FailByBadValueOID) {
     input.close();
 }
 
-TEST_F(CsvFileInputTest, FailByBadInt) {}
+TEST_F(CsvFileInputTest, FailByBadInt) {
+    CsvFileInput badInt("csv_test/badInt.csv", "csv_test/badInt.txt");
+    badInt.open();
+    int bufSize = 100;
+    char buf[bufSize];
 
-TEST_F(CsvFileInputTest, FailByBadDate) {}
+    for (int i = 0; i < 6; i++) {
+        ASSERT_THROWS_CODE(badInt.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    }
+    badInt.close();
+}
 
-TEST_F(CsvFileInputTest, FailByBadLong) {}
+TEST_F(CsvFileInputTest, FailByBadDate) {
+    CsvFileInput badDate("csv_test/badDate.csv", "csv_test/badDate.txt");
+    badDate.open();
+    int bufSize = 100;
+    char buf[bufSize];
 
-TEST_F(CsvFileInputTest, FailByBadBoolean) {}
+    for (int i = 0; i < 4; i++) {
+        ASSERT_THROWS_CODE(badDate.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    }
+    badDate.close();
+}
 
-TEST_F(CsvFileInputTest, FailByBadDecimal) {}
+TEST_F(CsvFileInputTest, FailByBadLong) {
+    CsvFileInput badLong("csv_test/badLong.csv", "csv_test/badLong.txt");
+    badLong.open();
+    int bufSize = 100;
+    char buf[bufSize];
 
-TEST_F(CsvFileInputTest, FailByOverflow) {
-    CsvFileInput intOverflow("mongo_csv_test/intOverflow.csv", "mongo_csv_test/intOverflow.txt");
+    for (int i = 0; i < 5; i++) {
+        ASSERT_THROWS_CODE(badLong.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    }
+    badLong.close();
+}
+
+TEST_F(CsvFileInputTest, FailByBadBoolean) {
+    CsvFileInput badBoolean("csv_test/badBoolean.csv", "csv_test/badBoolean.txt");
+    badBoolean.open();
+    int bufSize = 100;
+    char buf[bufSize];
+
+    for (int i = 0; i < 11; i++) {
+        ASSERT_THROWS_CODE(badBoolean.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    }
+    badBoolean.close();
+}
+
+TEST_F(CsvFileInputTest, FailByBadDecimal) {
+    CsvFileInput badDecimal("csv_test/badDecimal.csv", "csv_test/badDecimal.txt");
+    badDecimal.open();
+    int bufSize = 100;
+    char buf[bufSize];
+
+    for (int i = 0; i < 4; i++) {
+        ASSERT_THROWS_CODE(badDecimal.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    }
+    badDecimal.close();
+}
+
+TEST_F(CsvFileInputTest, FailByOutOfRange) {
+    CsvFileInput intOverflow("csv_test/intOutOfRange.csv", "csv_test/intOutOfRange.txt");
     intOverflow.open();
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 6; i++) {
         ASSERT_THROWS_CODE(intOverflow.read(buf, bufSize), DBException, ErrorCodes::Overflow);
     }
     intOverflow.close();
 
-    CsvFileInput longOverflow("mongo_csv_test/longOverflow.csv", "mongo_csv_test/longOverflow.txt");
+    CsvFileInput longOverflow("csv_test/longOutOfRange.csv", "csv_test/longOutOfRange.txt");
     longOverflow.open();
 
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 8; i++) {
         ASSERT_THROWS_CODE(longOverflow.read(buf, bufSize), DBException, ErrorCodes::Overflow);
     }
+    longOverflow.close();
 }
-
-// underflow and overflow generate same type of exception: out_of_range
-TEST_F(CsvFileInputTest, FailByUnderflow) {}
 
 TEST_F(CsvFileInputTest, BufferTooSmall) {
     // read should throw exception when buffer size is too small
-    CsvFileInput input("mongo_csv_test/bufTooSmall.csv", "mongo_csv_test/bufTooSmall.txt");
+    CsvFileInput input("csv_test/bufTooSmall.csv", "csv_test/bufTooSmall.txt");
     input.open();
 
-    int bufSize = 40;
+    int bufSize = 5;
     char buf[bufSize];
 
     for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS(input.read(buf, bufSize), DBException);
-        // ASSERT_THROWS_CODE(input.read(buf, bufSize), DBException, 200000402);
+        ASSERT_THROWS_CODE(input.read(buf, bufSize), DBException, 200000402);
     }
 
     input.close();
@@ -386,12 +435,12 @@ TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
     CsvFileInput input1("DNE1.csv", "DNE1.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, ErrorCodes::FileNotOpen);
 
-    CsvFileInput input2("DNE2.csv", "mongo_csv_test/badOid.txt");
+    CsvFileInput input2("DNE2.csv", "csv_test/badOid.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, ErrorCodes::FileNotOpen);
 }
 
 TEST_F(CsvFileInputTest, FailByMetadataLengthMisMatch) {
-    CsvFileInput input("mongo_csv_test/diffLength.csv", "mongo_csv_test/diffLength.txt");
+    CsvFileInput input("csv_test/diffLength.csv", "csv_test/diffLength.txt");
     input.open();
     char buff[200];
     for (int i = 0; i < 3; i++) {

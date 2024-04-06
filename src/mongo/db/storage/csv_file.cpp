@@ -52,7 +52,7 @@ CsvFileInput::CsvFileInput(const std::string& fileRelativePath, const std::strin
       _metadataAbsolutePath((externalPipeDir == "" ? kDefaultPipePath : externalPipeDir) +
                             metaFileRelative),
       _ifs() {
-    uassert(200000400,  // (2,000,000 + issueid) * 100
+    uassert(200000400,
             "File path must not include '..' but {} does"_format(_fileAbsolutePath),
             _fileAbsolutePath.find("..") == std::string::npos);
 }
@@ -205,7 +205,6 @@ template <>
 void appendTo<CsvFieldType::kDate>(BSONObjBuilder& builder,
                                    const std::string& fieldName,
                                    const std::string& data) {
-    // what if the field only does not specify time? only date
     auto date = dateFromISOString(data);
     // return badValue error codes
     uassert(date.getStatus().code(), date.getStatus().toString(), date.isOK());
@@ -221,14 +220,12 @@ void appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     constexpr size_t kOidTypeStrPrefix = kOidTypeStr + 2;  // objectid("
 
     std::string mutableData = data;
-    // oid format should be either objectId("ID") or "ID", or just ID?
-    // what if there is remaining incorrect data after the substring?
     if (data[0] == 'O' || data[0] == 'o') {
         std::transform(
             mutableData.begin(), mutableData.begin() + kOidTypeStr, mutableData.begin(), ::tolower);
         uassert(ErrorCodes::BadValue,
                 "Invalid Object Id format",
-                mutableData.substr(0, 10) == "objectid(\"");
+                mutableData.substr(0, kOidTypeStrPrefix) == "objectid(\"");
         mutableData = mutableData.substr(kOidTypeStrPrefix, kLengthOidValue);
     } else if (data[0] == '\"') {
         mutableData = mutableData.substr(1, kLengthOidValue);
@@ -262,9 +259,7 @@ void appendTo<CsvFieldType::kBool>(BSONObjBuilder& builder,
 boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     std::string record;
     std::getline(_ifs, record);
-    // if eof is reached or _ifs return false in the first place, _ifs would not extract any byte
-    // from the file anyway. std::getline does not affect the istream::gcount, thus when appended
-    // to this conditional statement, may cause unexpected exit.
+    // if eof is reache, _ifs return false
     if (_ifs.eof() || _ifs.fail()) {
         return boost::none;
     }
@@ -276,10 +271,6 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
 
     BSONObjBuilder builder;
 
-    // what happens when csv field is missing? (data1,,data3)
-    // for the theme of schemaless database, it should be allowed
-    // currently stox would return exception, string would go on as usual, char return error,
-    // bool appens false, date would return bad date value error. OId I don't know
     for (size_t i = 0; i < _md.size(); ++i) {
         if (data[i] == "") {
             builder.appendNull(_md[i].fieldName);
@@ -329,7 +320,6 @@ std::vector<std::string> CsvFileInput::parseLine(const std::string& line) {
 
     while (i <= len) {
         if (i == len || line.at(i) == ',') {
-            // can it handle empty string?
             strs.emplace_back(line.substr(left, right - left));
             left = 0;
             right = 0;
