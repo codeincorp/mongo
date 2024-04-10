@@ -18,7 +18,7 @@ protected:
 TEST_F(CsvFileInputTest, CsvBasicRead) {
     CsvFileInput input("csv_test/basicRead.csv", "csv_test/basicRead.txt");
 
-    std::vector<mongo::BSONObj> expected = {
+    std::vector expected = {
 
         fromjson(R"(
 {
@@ -447,24 +447,24 @@ TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
     ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
 
     ASSERT_THROWS_CODE(
-        CsvFileInput("../basicRead.csv",
+        CsvFileInput("basicRead.csv",
                      "../Users/youngjoonkim/mongo/src/mongo/db/storage/csv_test /tmp/"),
         DBException,
-        200000400);
+        200000401);
 }
 
-TEST_F(CsvFileInputTest, BadHeader) {
-    CsvFileInput input("csv_test/badHeader.csv", "csv_test/badHeader.txt");
-    ASSERT_THROWS_CODE(input.open(), DBException, 200000405);
+TEST_F(CsvFileInputTest, FailByBadMetadata) {
+    CsvFileInput input("csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
+    ASSERT_THROWS_CODE(input.open(), DBException, 200000403);
 
-    CsvFileInput input1("csv_test/badHeader.csv", "csv_test/badHeader.txt");
-    ASSERT_THROWS_CODE(input1.open(), DBException, 200000405);
+    CsvFileInput input1("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
+    ASSERT_THROWS_CODE(input1.open(), DBException, 200000403);
 
-    CsvFileInput input2("csv_test/badHeader.csv", "csv_test/badHeader.txt");
-    ASSERT_THROWS_CODE(input2.open(), DBException, 200000405);
+    CsvFileInput input2("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
+    ASSERT_THROWS_CODE(input2.open(), DBException, 200000404);
 
-    CsvFileInput input3("csv_test/badHeader.csv", "csv_test/badHeader.txt");
-    ASSERT_THROWS_CODE(input3.open(), DBException, 200000405);
+    CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
+    ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
 }
 
 TEST_F(CsvFileInputTest, FailByMetadataLengthMisMatch) {

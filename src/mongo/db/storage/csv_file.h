@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <fmt/format.h>
+#include <boost/optional.hpp>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -63,31 +63,34 @@ public:
 
 protected:
     void doOpen() override;
-    // Read the data into pre-allocated buffer 'data' upto 'size' bytes at maximum.
-    // Returns the number of bytes to be read.
+    // Read the data into pre-allocated buffer 'data' upto 'size' bytes at maximum and returns the
+    // number of bytes that has been actually read.
     int doRead(char* data, int size) override;
     void doClose() override;
 
 private:
     /**
-    Gets metadata for this CsvFileInputStream from the header read by parseLine
-    @parem: header read from the metadata file in vector, in format {"fieldName/typeName",
-    "fieldName/typeName"....}
-    @return: vector of FieldInfo containing fieldName(as std::string) and typeInfo(as CsvFieldType)
-    of the said field
-    */
+     * Gets metadata from the header read by parseLine. Metadata contains information on the name of
+     * the field and type of the field.
+     *
+     * @param header read from the metadata file in vector, in format {"fieldName/typeName",
+     *     "fieldName/typeName"....}.
+     * @return: vector of FieldInfo containing fieldName(as std::string) and typeInfo(as
+     *     CsvFieldType) of the said field. {{"fieldName1",type1},{"fieldName2",type2}...}.
+     */
     Metadata getMetadata(const std::vector<std::string>& header);
 
     /**
-    Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each field
-    as string
-    @paren: Line read from csv, "data1, data2, data3..."
-    @return: vecotr containing each field as string, {"data1", "data2", "data3"...}
-    */
+     * Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each
+     * field as string.
+     *
+     * @param line read from csv, "data1,data2,data3..."
+     * @return: vector containing each field as string, {"data1","data2","data3"...}.
+     */
     std::vector<std::string> parseLine(const std::string& line);
 
-    // read each line from the CSV file and converts it into a BSONObj, being compliant
-    // with the metadata.
+    // Reads each line from the CSV file and converts it into a BSONObj, being compliant with the
+    // metadata. it will return boost::none if there is no more line to read in the csv file
     boost::optional<BSONObj> readBsonObj();
 
     std::string _fileAbsolutePath;

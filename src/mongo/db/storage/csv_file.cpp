@@ -26,18 +26,16 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
+
 #include "mongo/db/storage/csv_file.h"
 
-// #include <cassert>
-// #include <cerrno>
-#include <cstdio>
 #include <fmt/format.h>
 #include <fstream>  // IWYU pragma: keep
 #include <string>
-#include <sys/stat.h>
 
 #include "mongo/base/error_codes.h"
-#include "mongo/base/string_data.h"
+#include "mongo/bson/bsonobjbuilder.h"
+#include "mongo/bson/oid.h"
 #include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/db/storage/io_error_message.h"
 #include "mongo/logv2/log.h"
@@ -56,7 +54,7 @@ CsvFileInput::CsvFileInput(const std::string& fileRelativePath, const std::strin
     uassert(200000400,
             "File path must not include '..' but {} does"_format(_fileAbsolutePath),
             _fileAbsolutePath.find("..") == std::string::npos);
-    uassert(200000400,
+    uassert(200000401,
             "File path must not include '..' but {} does"_format(_metadataAbsolutePath),
             _metadataAbsolutePath.find("..") == std::string::npos);
 }
@@ -67,8 +65,7 @@ CsvFileInput::~CsvFileInput() {
 
 void CsvFileInput::doOpen() {
     std::string metadata;
-    std::ifstream ifsMetadata;
-    ifsMetadata.open(_metadataAbsolutePath.c_str(), std::ios::in);
+    std::ifstream ifsMetadata(_metadataAbsolutePath.c_str(), std::ios::in);
     uassert(ErrorCodes::FileNotOpen,
             "error = {}: "_format(getErrorMessage("open", _metadataAbsolutePath)),
             ifsMetadata.is_open());
@@ -84,8 +81,8 @@ void CsvFileInput::doOpen() {
             _ifs.is_open());
 }
 
-// caller must ensure that buffer size is greater than or equal to the size of the bsonObject
-// to be returned. If not, it would throw exception (Not enough size in buffer)
+// caller must ensure that buffer size is greater than or equal to the size of the bsonObject to be
+// returned. If not, it would throw exception (Not enough size in buffer)
 int CsvFileInput::doRead(char* data, int size) {
     auto bsonObj = readBsonObj();
 
@@ -95,7 +92,7 @@ int CsvFileInput::doRead(char* data, int size) {
 
     int nRead = bsonObj->objsize();
     uassert(200000402,
-            "Buff Size {} bytes too small to contain {} bytes bsonObj"_format(size, nRead),
+            "Buff Size {} bytes is too small to contain {} bytes bsonObj"_format(size, nRead),
             nRead <= size);
     memcpy(data, bsonObj->objdata(), nRead);
     return nRead;
@@ -133,11 +130,10 @@ Metadata CsvFileInput::getMetadata(const std::vector<std::string>& header) {
         size_t index = field.find('/');
         size_t len = index != std::string::npos ? field.length() - index - 1 : typeNameAbsent;
         // covers both case where field does not / at all or typename absent after /
-        uassert(200000405,
-                "Field \"{}\" does not specify typeName. Index: {}"_format(field, i),
+        uassert(200000403,
+                "{}th Field '{}' does not specify typeName."_format(field, i),
                 len > typeNameAbsent);
 
-        // Test/Guard against scenario where typename is blank
         auto fieldName = field.substr(0, index);
         auto typeName = field.substr(index + 1, len);
         CsvFieldType type;
@@ -157,7 +153,8 @@ Metadata CsvFileInput::getMetadata(const std::vector<std::string>& header) {
         } else if (typeName == "string") {
             type = CsvFieldType::kString;
         } else {
-            uasserted(200000401, "{} type is not supported. Index: {}"_format(typeName, i));
+            uasserted(200000404,
+                      "{} type is not supported at {}th field: {}"_format(typeName, i, fieldName));
         }
 
         ret.push_back({std::move(fieldName), type});
@@ -178,7 +175,7 @@ void appendTo<CsvFieldType::kInt32>(BSONObjBuilder& builder,
     builder.append(fieldName, stoi(data));
     if (data.find('.') != std::string::npos) {
         LOGV2_WARNING(
-            200000403,
+            200000405,
             "{field}: Lossy conversion of double type to int32 type: {original} To {converted}",
             "field"_attr = fieldName,
             "original"_attr = data,
@@ -190,18 +187,7 @@ template <>
 void appendTo<CsvFieldType::kDouble>(BSONObjBuilder& builder,
                                      const std::string& fieldName,
                                      const std::string& data) {
-    double converted = stod(data);
-    builder.append(fieldName, converted);
-    // int dotIndex = data.find('.');
-    // Warning user of possibly unwanted lossy conversion if provided decimal is too
-    // long
-    if (data.length() > 15) {
-        LOGV2_WARNING(200000404,
-                      "{field}: Lossy conversion: {original} converted to {convertedTo}",
-                      "field"_attr = fieldName,
-                      "original"_attr = data,
-                      "convertedTo"_attr = converted);
-    }
+    builder.append(fieldName, stod(data));
 }
 
 template <>
@@ -211,7 +197,7 @@ void appendTo<CsvFieldType::kInt64>(BSONObjBuilder& builder,
     long long int converted = stoll(data);
     builder.append(fieldName, converted);
     if (data.find('.') != std::string::npos) {
-        LOGV2_WARNING(200000404,
+        LOGV2_WARNING(200000406,
                       "{field}: lossy conversion of decimal type to int64 type: {original} "
                       "converted to {convertedTo}",
                       "field"_attr = fieldName,
@@ -259,7 +245,7 @@ void appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     uassert(ErrorCodes::BadValue,
             "Invalid Object Id Format: {}"_format(data),
             mutableData.length() == kLengthOidValue);
-    mongo::OID id = mongo::OID(mutableData);  // throws exception if bad
+    mongo::OID id = mongo::OID(mutableData);  // throws exception if it detects bad OID
     builder.append(fieldName, id);
 }
 
@@ -285,7 +271,7 @@ void appendTo<CsvFieldType::kBool>(BSONObjBuilder& builder,
 boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     std::string record;
     std::getline(_ifs, record);
-    // if eof is reache, _ifs return false
+    // if eof is reached, _ifs return false
     if (_ifs.eof() || _ifs.fail()) {
         return boost::none;
     }
@@ -328,7 +314,7 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
                     appendTo<CsvFieldType::kDate>(builder, _metadata[i].fieldName, data[i]);
                     break;
             }
-            // catching failed conversion to stoi, stof, stoll, and stod
+            // catching failed conversion to stoi, stoll, and stod
         } catch (const std::invalid_argument& e) {
             uasserted(ErrorCodes::BadValue, "{}: {}"_format(e.what(), data[i]));
         } catch (const std::out_of_range& e) {

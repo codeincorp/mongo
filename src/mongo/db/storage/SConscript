@@ -604,17 +604,6 @@ env.CppUnitTest(
     ],
 )
 
-csv_reader_test = env.Program(
-    target='csv_reader_test',
-    source=[
-        'csv_file_test.cpp',
-    ],
-    LIBDEPS=[
-        '$BUILD_DIR/mongo/db/query/query_knobs',
-        '$BUILD_DIR/mongo/db/server_base',
-    ],
-)
-
 env.Library(
     target='durable_catalog',
     source=[
