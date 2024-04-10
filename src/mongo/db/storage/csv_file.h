@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2022-present MongoDB, Inc.
+ *    Copyright (C) 2024-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -32,19 +32,15 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <string>
-#include <typeindex>
 #include <vector>
 
-#include "mongo/bson/bsonobjbuilder.h"
-#include "mongo/bson/oid.h"
-#include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/db/storage/input_object.h"
 
 namespace mongo {
 
 static constexpr auto kDefaultPipePath = "/tmp/"_sd;
 
-enum class CsvFieldType { kBool, kInt32, kInt64, kDate, kOid, kDecimal, kString };
+enum class CsvFieldType { kBool, kInt32, kInt64, kDate, kOid, kDouble, kString };
 
 struct FieldInfo {
     std::string fieldName;
@@ -53,11 +49,9 @@ struct FieldInfo {
 
 using Metadata = std::vector<FieldInfo>;
 
-class CsvFileOutput {};
-
 class CsvFileInput : public StreamableInput {
 public:
-    CsvFileInput(const std::string& fileRelativePath, const std::string& metaFileRelative);
+    CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
     ~CsvFileInput() override;
     const std::string& getAbsolutePath() const override {
         return _fileAbsolutePath;
@@ -75,9 +69,23 @@ protected:
     void doClose() override;
 
 private:
+    /**
+    Gets metadata for this CsvFileInputStream from the header read by parseLine
+    @parem: header read from the metadata file in vector, in format {"fieldName/typeName",
+    "fieldName/typeName"....}
+    @return: vector of FieldInfo containing fieldName(as std::string) and typeInfo(as CsvFieldType)
+    of the said field
+    */
     Metadata getMetadata(const std::vector<std::string>& header);
+
+    /**
+    Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each field
+    as string
+    @paren: Line read from csv, "data1, data2, data3..."
+    @return: vecotr containing each field as string, {"data1", "data2", "data3"...}
+    */
     std::vector<std::string> parseLine(const std::string& line);
-    std::pair<std::string, std::string> get_field(const std::string& field);
+
     // read each line from the CSV file and converts it into a BSONObj, being compliant
     // with the metadata.
     boost::optional<BSONObj> readBsonObj();
@@ -85,7 +93,7 @@ private:
     std::string _fileAbsolutePath;
     std::string _metadataAbsolutePath;
     std::ifstream _ifs;
-    Metadata _md;
+    Metadata _metadata;
 };
 
 }  // namespace mongo
