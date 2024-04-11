@@ -26,7 +26,8 @@ const upgradeVersions = {
     "4.4": {"fcv": "5.0", "nextVersion": "5.0"},
     "5.0": {"fcv": "6.0", "nextVersion": "6.0"},
     "6.0": {"fcv": "7.0", "nextVersion": "7.0"},
-    "7.0": {"fcv": "8.0", "nextVersion": "latest"},
+    "7.0": {"fcv": "8.0", "nextVersion": "8.0"},
+    "8.0": {"fcv": "8.1", "nextVersion": "latest"},
     // TODO (SERVER-66611): Automate modifying this list.
     "latest": {}
 }
@@ -242,6 +243,8 @@ export class DbCheckOldFormatKeysTest {
                 // the journal, which will raise an invalid version error because they will see the
                 // old FCV.
                 rst.awaitLastOpCommitted();
+
+                this._fcv = fcv;
             }
             this._binVersion = nextVersion;
         }
@@ -249,7 +252,7 @@ export class DbCheckOldFormatKeysTest {
         assert.eq("latest", this._binVersion);
         const fcvDoc = this.getRst().getPrimary().adminCommand(
             {getParameter: 1, featureCompatibilityVersion: 1});
-        assert.eq("8.0", fcvDoc.featureCompatibilityVersion.version);
+        assert.eq(this._fcv, fcvDoc.featureCompatibilityVersion.version);
 
         forEachNonArbiterNode(this.getRst(), function(node) {
             assert.commandWorked(node.adminCommand({

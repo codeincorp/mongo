@@ -54,6 +54,7 @@
 #include "mongo/db/concurrency/exception_util.h"
 #include "mongo/db/curop.h"
 #include "mongo/db/db_raii.h"
+#include "mongo/db/direct_connection_util.h"
 #include "mongo/db/repl/read_concern_args.h"
 #include "mongo/db/repl/read_concern_level.h"
 #include "mongo/db/repl/replication_coordinator.h"
@@ -115,6 +116,13 @@ struct ResolvedNamespaceOrViewAcquisitionRequest {
 using ResolvedNamespaceOrViewAcquisitionRequests =
     absl::InlinedVector<ResolvedNamespaceOrViewAcquisitionRequest,
                         kDefaultAcquisitionContainerSize>;
+
+template <typename List, typename T>
+void removeByPtr(List& l, T* p) {
+    auto it = std::find_if(l.begin(), l.end(), [&](auto& e) { return &e == p; });
+    if (it != l.end())
+        l.erase(it);
+}
 
 void validateResolvedCollectionByUUID(OperationContext* opCtx,
                                       CollectionOrViewAcquisitionRequest ar,
@@ -447,6 +455,10 @@ CollectionOrViewAcquisitions acquireResolvedCollectionsOrViewsWithoutTakingLocks
         }
     }
 
+    // Check if this operation is a direct connection and if it is authorized to be one.
+    const auto& dbName = sortedAcquisitionRequests.begin()->prerequisites.nss.dbName();
+    direct_connection_util::checkDirectShardOperationAllowed(opCtx, dbName);
+
     return acquisitions;
 }
 
@@ -638,37 +650,35 @@ CollectionAcquisition::CollectionAcquisition(const CollectionAcquisition& other)
     _acquiredCollection->refCount++;
 }
 
-CollectionAcquisition::CollectionAcquisition(CollectionAcquisition&& other)
-    : _txnResources(other._txnResources), _acquiredCollection(other._acquiredCollection) {
-    other._txnResources = nullptr;
-    other._acquiredCollection = nullptr;
-}
+CollectionAcquisition::CollectionAcquisition(CollectionAcquisition&& other) noexcept
+    : _txnResources(std::exchange(other._txnResources, {})),
+      _acquiredCollection(std::exchange(other._acquiredCollection, {})) {}
 
 CollectionAcquisition& CollectionAcquisition::operator=(const CollectionAcquisition& other) {
-    this->~CollectionAcquisition();
-    _txnResources = other._txnResources;
-    _acquiredCollection = other._acquiredCollection;
-    _txnResources->collectionAcquisitionReferences++;
-    _acquiredCollection->refCount++;
+    if (this != &other) {
+        auto tmp{std::move(*this)};
+        _txnResources = other._txnResources;
+        _acquiredCollection = other._acquiredCollection;
+        _txnResources->collectionAcquisitionReferences++;
+        _acquiredCollection->refCount++;
+    }
     return *this;
 }
 
-CollectionAcquisition& CollectionAcquisition::operator=(CollectionAcquisition&& other) {
-    this->~CollectionAcquisition();
-    _txnResources = other._txnResources;
-    other._txnResources = nullptr;
-    _acquiredCollection = other._acquiredCollection;
-    other._acquiredCollection = nullptr;
+CollectionAcquisition& CollectionAcquisition::operator=(CollectionAcquisition&& other) noexcept {
+    if (this != &other) {
+        auto tmp{std::move(*this)};
+        _txnResources = std::exchange(other._txnResources, {});
+        _acquiredCollection = std::exchange(other._acquiredCollection, {});
+    }
     return *this;
 }
 
 CollectionAcquisition::CollectionAcquisition(CollectionOrViewAcquisition&& other) {
     invariant(other.isCollection());
     auto& acquisition = get<CollectionAcquisition>(other._collectionOrViewAcquisition);
-    _txnResources = acquisition._txnResources;
-    acquisition._txnResources = nullptr;
-    _acquiredCollection = acquisition._acquiredCollection;
-    acquisition._acquiredCollection = nullptr;
+    _txnResources = std::exchange(acquisition._txnResources, {});
+    _acquiredCollection = std::exchange(acquisition._acquiredCollection, {});
     other._collectionOrViewAcquisition = std::monostate();
 }
 
@@ -685,10 +695,7 @@ CollectionAcquisition::~CollectionAcquisition() {
     if (transactionResources.state == shard_role_details::TransactionResources::State::ACTIVE) {
         auto currentRefCount = --_acquiredCollection->refCount;
         if (currentRefCount == 0) {
-            transactionResources.acquiredCollections.remove_if(
-                [&](const shard_role_details::AcquiredCollection& txnResourceAcquiredColl) {
-                    return &txnResourceAcquiredColl == _acquiredCollection;
-                });
+            removeByPtr(transactionResources.acquiredCollections, _acquiredCollection);
         }
     }
 
@@ -752,27 +759,28 @@ ViewAcquisition::ViewAcquisition(const ViewAcquisition& other)
     _acquiredView->refCount++;
 }
 
-ViewAcquisition::ViewAcquisition(ViewAcquisition&& other)
-    : _txnResources(other._txnResources), _acquiredView(other._acquiredView) {
-    other._txnResources = nullptr;
-    other._acquiredView = nullptr;
-}
+ViewAcquisition::ViewAcquisition(ViewAcquisition&& other) noexcept
+    : _txnResources(std::exchange(other._txnResources, {})),
+      _acquiredView(std::exchange(other._acquiredView, {})) {}
+
 
 ViewAcquisition& ViewAcquisition::operator=(const ViewAcquisition& other) {
-    this->~ViewAcquisition();
-    _txnResources = other._txnResources;
-    _acquiredView = other._acquiredView;
-    _txnResources->viewAcquisitionReferences++;
-    _acquiredView->refCount++;
+    if (this != &other) {
+        auto tmp{std::move(*this)};
+        _txnResources = other._txnResources;
+        _acquiredView = other._acquiredView;
+        _txnResources->viewAcquisitionReferences++;
+        _acquiredView->refCount++;
+    }
     return *this;
 }
 
-ViewAcquisition& ViewAcquisition::operator=(ViewAcquisition&& other) {
-    this->~ViewAcquisition();
-    _txnResources = other._txnResources;
-    _acquiredView = other._acquiredView;
-    other._txnResources = nullptr;
-    other._acquiredView = nullptr;
+ViewAcquisition& ViewAcquisition::operator=(ViewAcquisition&& other) noexcept {
+    if (this != &other) {
+        auto tmp{std::move(*this)};
+        _txnResources = std::exchange(other._txnResources, {});
+        _acquiredView = std::exchange(other._acquiredView, {});
+    }
     return *this;
 }
 
@@ -789,10 +797,7 @@ ViewAcquisition::~ViewAcquisition() {
     if (transactionResources.state == shard_role_details::TransactionResources::State::ACTIVE) {
         auto currentRefCount = --_acquiredView->refCount;
         if (currentRefCount == 0) {
-            transactionResources.acquiredViews.remove_if(
-                [&](const shard_role_details::AcquiredView& txnResourceAcquiredView) {
-                    return &txnResourceAcquiredView == _acquiredView;
-                });
+            removeByPtr(transactionResources.acquiredViews, _acquiredView);
         }
     }
 
@@ -1499,6 +1504,11 @@ void restoreTransactionResourcesToOperationContext(
                 acquiredCollection.ownershipFilter =
                     std::move(reacquiredServicesSnapshot.ownershipFilter);
             }
+
+            // Check if this operation is a direct connection and if it is authorized to be one
+            // after reacquiring locks or snapshots.
+            direct_connection_util::checkDirectShardOperationAllowed(
+                opCtx, transactionResources.acquiredCollections.front().prerequisites.nss.dbName());
 
             // TODO: This will be removed when we no longer snapshot sharding state on CollectionPtr
             invariant(acquiredCollection.collectionDescription);

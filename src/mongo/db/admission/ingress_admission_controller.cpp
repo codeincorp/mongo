@@ -33,9 +33,7 @@
 
 #include "mongo/db/admission/ingress_admission_context.h"
 #include "mongo/db/admission/ingress_admission_control_gen.h"
-#include "mongo/db/curop.h"
 #include "mongo/db/service_context.h"
-#include "mongo/stdx/mutex.h"
 #include "mongo/util/decorable.h"
 
 namespace mongo {
@@ -48,22 +46,6 @@ const ConstructorActionRegistererType<ServiceContext> onServiceContextCreate{
     "InitIngressAdmissionController", [](ServiceContext* ctx) {
         getIngressAdmissionController(ctx).init();
     }};
-
-class WaitingForIngressAdmissionGuard {
-public:
-    explicit WaitingForIngressAdmissionGuard(OperationContext* opCtx) : _opCtx(opCtx) {
-        stdx::unique_lock<Client> lk(*_opCtx->getClient());
-        CurOp::get(opCtx)->setWaitingForIngressAdmission(lk, true);
-    }
-
-    ~WaitingForIngressAdmissionGuard() {
-        stdx::unique_lock<Client> lk(*_opCtx->getClient());
-        CurOp::get(_opCtx)->setWaitingForIngressAdmission(lk, false);
-    }
-
-private:
-    OperationContext* _opCtx;
-};
 }  // namespace
 
 IngressAdmissionController::IngressAdmissionController() {}
@@ -87,13 +69,11 @@ Ticket IngressAdmissionController::admitOperation(OperationContext* opCtx) {
         return std::move(*ticket);
     }
 
-    // Mark the operation as waiting for ticket
-    WaitingForIngressAdmissionGuard guard{opCtx};
-    return _ticketHolder->waitForTicket(*opCtx, &admCtx);
+    return _ticketHolder->waitForTicket(opCtx, &admCtx);
 }
 
-void IngressAdmissionController::resizeTicketPool(int32_t newSize) {
-    uassert(8611200, "Failed to resize ticket pool", _ticketHolder->resize(newSize));
+void IngressAdmissionController::resizeTicketPool(OperationContext* opCtx, int32_t newSize) {
+    uassert(8611200, "Failed to resize ticket pool", _ticketHolder->resize(opCtx, newSize));
 }
 
 void IngressAdmissionController::appendStats(BSONObjBuilder& b) const {
@@ -101,10 +81,12 @@ void IngressAdmissionController::appendStats(BSONObjBuilder& b) const {
 }
 
 Status IngressAdmissionController::onUpdateTicketPoolSize(int32_t newValue) try {
-    auto* svcCtx = getCurrentServiceContext();
-    if (svcCtx != nullptr) {
-        getIngressAdmissionController(svcCtx).resizeTicketPool(newValue);
+    if (auto client = Client::getCurrent()) {
+        auto opCtx = client->getOperationContext();
+        getIngressAdmissionController(client->getServiceContext())
+            .resizeTicketPool(opCtx, newValue);
     }
+
     return Status::OK();
 } catch (const DBException& ex) {
     return ex.toStatus();

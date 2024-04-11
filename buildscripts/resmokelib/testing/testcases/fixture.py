@@ -1,10 +1,13 @@
 """The unittest.TestCase instances for setting up and tearing down fixtures."""
 
+from pymongo import ReadPreference
+
 from buildscripts.resmokelib import errors
 from buildscripts.resmokelib.testing.fixtures import interface as fixture_interface
 from buildscripts.resmokelib.testing.fixtures.external import ExternalFixture
 from buildscripts.resmokelib.testing.testcases import interface
 from buildscripts.resmokelib.utils import registry
+from buildscripts.resmokelib.testing.fixtures.replicaset import ReplicaSetFixture
 
 
 class FixtureTestCase(interface.TestCase):  # pylint: disable=abstract-method
@@ -40,8 +43,17 @@ class FixtureSetupTestCase(FixtureTestCase):
             self.fixture.setup()
             self.logger.info("Waiting for %s to be ready.", self.fixture)
             self.fixture.await_ready()
-            if not isinstance(self.fixture, (fixture_interface.NoOpFixture, ExternalFixture)):
-                self.fixture.mongo_client().admin.command({"refreshLogicalSessionCacheNow": 1})
+            if (not isinstance(self.fixture, (fixture_interface.NoOpFixture, ExternalFixture))
+                    # Replica set with --configsvr cannot run refresh unless it is part of a sharded cluster.
+                    and not (isinstance(self.fixture, ReplicaSetFixture)
+                             and "configsvr" in self.fixture.mongod_options)):
+                mongo_client = self.fixture.mongo_client(ReadPreference.PRIMARY)
+                # Read from the CSRS primary to gossip the most recent configTime to the mongos.
+                # This ensures that the latest state of the sessions collection can be seen
+                # by the router, when performing the LogicalSessionCache refresh.
+                mongo_client.admin["system.version"].find({})
+                # Perform the LogicalSessionCache refresh.
+                mongo_client.admin.command({"refreshLogicalSessionCacheNow": 1})
             self.logger.info("Finished the setup of %s.", self.fixture)
             self.return_code = 0
         except errors.ServerFailure as err:

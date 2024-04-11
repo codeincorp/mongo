@@ -100,7 +100,8 @@ __wt_txn_op_set_recno(WT_SESSION_IMPL *session, uint64_t recno)
 
 /*
  * __wt_txn_op_set_key --
- *     Set the latest transaction operation with the given key.
+ *     Copy the given key onto the most recent transaction operation. This function early exits if
+ *     the transaction cannot prepare.
  */
 static WT_INLINE int
 __wt_txn_op_set_key(WT_SESSION_IMPL *session, const WT_ITEM *key)
@@ -115,7 +116,7 @@ __wt_txn_op_set_key(WT_SESSION_IMPL *session, const WT_ITEM *key)
     op = txn->mod + txn->mod_count - 1;
 
     if (WT_SESSION_IS_CHECKPOINT(session) || WT_IS_HS(op->btree->dhandle) ||
-      WT_IS_METADATA(op->btree->dhandle))
+      WT_IS_METADATA(op->btree->dhandle) || F_ISSET(txn, WT_TXN_AUTOCOMMIT))
         return (0);
 
     WT_ASSERT(session, op->type == WT_TXN_OP_BASIC_ROW || op->type == WT_TXN_OP_INMEM_ROW);
@@ -368,11 +369,20 @@ __wt_txn_op_delete_commit_apply_timestamps(WT_SESSION_IMPL *session, WT_REF *ref
     if (previous_state != WT_REF_DELETED) {
         WT_ASSERT(session, previous_state == WT_REF_MEM);
         WT_ASSERT(session, ref->page != NULL && ref->page->modify != NULL);
-        if ((updp = ref->page->modify->inst_updates) != NULL)
-            for (; *updp != NULL; ++updp) {
-                (*updp)->start_ts = txn->commit_timestamp;
-                (*updp)->durable_ts = txn->durable_timestamp;
+        if ((updp = ref->page->modify->inst_updates) != NULL) {
+            /*
+             * If we have already set the timestamp, no need to set the timestamp again. We have
+             * either set the timestamp on all the updates, or we have set the timestamp on none of
+             * the updates.
+             */
+            if (*updp != NULL && (*updp)->start_ts == WT_TS_NONE) {
+                do {
+                    (*updp)->start_ts = txn->commit_timestamp;
+                    (*updp)->durable_ts = txn->durable_timestamp;
+                    ++updp;
+                } while (*updp != NULL);
             }
+        }
     }
 
     __txn_op_delete_commit_apply_page_del_timestamp(session, ref);

@@ -29,7 +29,6 @@
 
 #include "mongo/db/exec/sbe/values/ts_block.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <tuple>
@@ -44,6 +43,7 @@
 #include "mongo/db/exec/sbe/values/util.h"
 #include "mongo/db/exec/sbe/values/value.h"
 #include "mongo/db/exec/timeseries/bucket_unpacker.h"
+#include "mongo/db/query/bson_typemask.h"
 #include "mongo/db/storage/storage_parameters_gen.h"
 #include "mongo/db/timeseries/timeseries_constants.h"
 #include "mongo/util/itoa.h"
@@ -51,61 +51,6 @@
 namespace mongo::sbe::value {
 
 namespace {
-// Internally used by TsBlock, and not exposed as part of the rest of the native block types. This
-// block owns its data in an intrusive_ptr<ElementStorage>, and provides a view of SBE tags/vals
-// which point into it.
-class ElementStorageValueBlock final : public ValueBlock {
-public:
-    ElementStorageValueBlock() = default;
-    ElementStorageValueBlock(const ElementStorageValueBlock& o) = delete;
-    ElementStorageValueBlock(ElementStorageValueBlock&& o) = delete;
-
-    /**
-     * Constructor which takes a storage buffer along with 'tags' and 'vals' which point into the
-     * storage buffer. The storage buffer is responsible for freeing the values. That is,
-     * releaseValue() will not be called.
-     */
-    ElementStorageValueBlock(boost::intrusive_ptr<mongo::bsoncolumn::ElementStorage> storage,
-                             std::vector<TypeTags> tags,
-                             std::vector<Value> vals)
-        : _storage(std::move(storage)), _vals(std::move(vals)), _tags(std::move(tags)) {}
-
-    size_t size() const {
-        return _tags.size();
-    }
-
-    boost::optional<size_t> tryCount() const override {
-        return _vals.size();
-    }
-
-    DeblockedTagVals deblock(boost::optional<DeblockedTagValStorage>& storage) override {
-        return {_vals.size(), _tags.data(), _vals.data()};
-    }
-
-    std::unique_ptr<ValueBlock> clone() const override {
-        // Just like TsBlock, any attempts to copy/clone this block result in a fully owned
-        // version. The "viewness" does not propagate.
-        std::vector<TypeTags> cpyTags(_tags.size(), value::TypeTags::Nothing);
-        std::vector<Value> cpyVals(_tags.size());
-        ValueVectorGuard guard(cpyTags, cpyVals);
-        for (size_t i = 0; i < _tags.size(); ++i) {
-            std::tie(cpyTags[i], cpyVals[i]) = value::copyValue(_tags[i], _vals[i]);
-        }
-
-        guard.reset();
-        return std::make_unique<HeterogeneousBlock>(std::move(cpyTags), std::move(cpyVals));
-    }
-
-private:
-    // Storage for the values.
-    boost::intrusive_ptr<mongo::bsoncolumn::ElementStorage> _storage;
-
-    // The values stored in these vectors are pointers into '_storage', which is responsible for
-    // freeing them.
-    std::vector<Value> _vals;
-    std::vector<TypeTags> _tags;
-};
-
 /**
  * Used by the block-based decompressing API to decompress directly into vectors that are needed
  * by other functions to construct blocks. The API requires all 'Containers' to implement
@@ -113,18 +58,19 @@ private:
  **/
 class BlockBasedDecompressAdaptor {
     using Element = sbe::bsoncolumn::SBEColumnMaterializer::Element;
+    using ElementStorage = mongo::bsoncolumn::ElementStorage;
 
 public:
-    BlockBasedDecompressAdaptor(std::vector<TypeTags>& tags, std::vector<Value>& vals)
-        : _tags(tags), _vals(vals){};
+    BlockBasedDecompressAdaptor(size_t expectedCount) {
+        _tags.reserve(expectedCount);
+        _vals.reserve(expectedCount);
+    }
 
     void push_back(const Element& e) {
-        // 'ElementStorage' and 'TsBlock' each assume they own the decompressed element. To avoid
-        // freeing the same elements twice, we will store a copy of the element in SBE.
-        // TODO SERVER-85256 stop copying 'e'.
-        auto [cpyTag, cpyVal] = value::copyValue(e.first, e.second);
-        _tags.push_back(cpyTag);
-        _vals.push_back(cpyVal);
+        auto [tag, val] = e;
+        _allValuesShallow = _allValuesShallow && value::isShallowType(tag);
+        _tags.push_back(tag);
+        _vals.push_back(val);
     }
 
     Element back() {
@@ -136,12 +82,36 @@ public:
     //     _positions.push_back(n);
     // }
 
+    boost::intrusive_ptr<ElementStorage> allocator() const {
+        return _allocator;
+    }
+
+    std::unique_ptr<value::ValueBlock> extractBlock() {
+        if (_allValuesShallow) {
+            // We have no deep types, so '_tags' and '_vals' do not contain pointers into
+            // '_storage'.  We can pass these into a block type which takes ownership of its
+            // values, and we may be able to advantage of homogeneous/repeated data.
+            return buildBlockFromStorage(std::move(_tags), std::move(_vals));
+        } else {
+            // If the block has any deep types, we output an ElementStorageValueBlock to avoid
+            // copying the deep value(s).
+            return std::make_unique<ElementStorageValueBlock>(
+                std::move(_allocator), std::move(_tags), std::move(_vals));
+        }
+    }
+
 private:
-    std::vector<TypeTags>& _tags;
-    std::vector<Value>& _vals;
+    std::vector<TypeTags> _tags;
+    std::vector<Value> _vals;
     // TODO SERVER-85718 Enable when integrating interleaved mode. This vector will hold the
     // position information of the values.
     // std::vector<int32_t> _positions;
+
+    boost::intrusive_ptr<ElementStorage> _allocator{new ElementStorage()};
+
+    // Whether push_back() has been called only with shallow values, which do not point into
+    // '_storage'.
+    bool _allValuesShallow = true;
 };
 }  // namespace
 
@@ -398,31 +368,25 @@ void TsBlock::deblockFromBsonObj() {
 void TsBlock::deblockFromBsonColumn() {
     const auto binData = getBinData();
 
-    std::vector<TypeTags> tags;
-    std::vector<Value> vals;
-    tags.reserve(_count);
-    vals.reserve(_count);
-
     // If we can guarantee there are no arrays nor objects in this column, and the feature flag is
     // enabled, use the faster block-based decoding API.
     if (_blockBasedDecompressionEnabled && hasNoObjsOrArrays()) {
         using SBEMaterializer = sbe::bsoncolumn::SBEColumnMaterializer;
         mongo::bsoncolumn::BSONColumnBlockBased col(binData);
-        boost::intrusive_ptr allocator{new mongo::bsoncolumn::ElementStorage()};
 
-        // The decoding API will put the decompressed elements directly into 'tags' and
-        // 'vals'.
-        BlockBasedDecompressAdaptor container(tags, vals);
-        col.decompress<SBEMaterializer, BlockBasedDecompressAdaptor>(container, allocator);
-        tassert(8751600,
-                "Must have same the number of decompressed tags and values",
-                tags.size() == vals.size());
-
-        _decompressedBlock = buildBlockFromStorage(std::move(tags), std::move(vals));
+        BlockBasedDecompressAdaptor container(_count);
+        col.decompress<SBEMaterializer, BlockBasedDecompressAdaptor>(container,
+                                                                     container.allocator());
+        _decompressedBlock = container.extractBlock();
     } else {
         // Use the old, less efficient decoder, if there may be objects or arrays.
         BSONColumn blockColumn(binData);
         auto it = blockColumn.begin();
+
+        std::vector<TypeTags> tags;
+        std::vector<Value> vals;
+        tags.reserve(_count);
+        vals.reserve(_count);
 
         // Generally when we're in this path, we expect to be decompressing deep types. Instead of
         // copying the values into an owned value block, we insert them into an
@@ -547,6 +511,25 @@ std::unique_ptr<ValueBlock> TsBlock::fillEmpty(TypeTags fillTag, Value fillVal) 
     return _decompressedBlock->fillEmpty(fillTag, fillVal);
 }
 
+std::unique_ptr<ValueBlock> TsBlock::fillType(uint32_t typeMask, TypeTags fillTag, Value fillVal) {
+    if (static_cast<bool>(getBSONTypeMask(_controlMin.first) & kNumberMask) &&
+        static_cast<bool>(getBSONTypeMask(_controlMax.first) & kNumberMask) &&
+        !static_cast<bool>(kNumberMask & typeMask)) {
+        // The control min and max tags are both numbers, and the target typeMask doesn't cover
+        // numbers which are in the same canonical type bracket (see canonicalizeBSONType()). Even
+        // though the block could have Nothings, fillType on Nothing always returns Nothing.
+        return nullptr;
+    } else if (static_cast<bool>(getBSONTypeMask(_controlMin.first) & kDateMask) &&
+               _controlMin.first == _controlMax.first && !static_cast<bool>(kDateMask & typeMask)) {
+        // The control min and max tags are both dates and the target typeMask doesn't cover Dates.
+        // Since Dates are in their own canonical type bracket (see canonicalizeBSONType()) and
+        // fillType on Nothing returns Nothing, we can return the block unchanged without having to
+        // extract.
+        return nullptr;
+    }
+
+    return ValueBlock::fillType(typeMask, fillTag, fillVal);
+}
 
 ValueBlock& TsCellBlockForTopLevelField::getValueBlock() {
     return *_unownedTsBlock;

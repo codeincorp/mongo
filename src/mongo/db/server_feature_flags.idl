@@ -162,7 +162,7 @@ feature_flags:
     featureFlagIngressAdmissionControl:
         description: "Feature flag to enable data node ingress admission control"
         cpp_varname: gFeatureFlagIngressAdmissionControl
-        default: false
+        default: true
         shouldBeFCVGated: false
     featureFlagPrefetch:
         description: "Feature flag to make pre-fetching available"
@@ -175,8 +175,9 @@ feature_flags:
         cpp_varname: gFeatureFlagDefaultReadMaxTimeMS
         default: false
         shouldBeFCVGated: true
-    featureFlagPeriodicServerParameterSampling:
-        description: "Feature flag to enable periodic FTDC sampling of server parameters"
-        cpp_varname: gFeatureFlagPeriodicServerParameterSampling
-        default: false
-        shouldBeFCVGated: false
+    featureFlagErrorAndLogValidationAction:
+        description: "Feature flag to enable errorAndLog validatio action in collection options"
+        cpp_varname: gFeatureFlagErrorAndLogValidationAction
+        default: true
+        version: 8.1
+        shouldBeFCVGated: true

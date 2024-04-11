@@ -9,9 +9,9 @@ import {usedBonsaiOptimizer} from "jstests/libs/optimizer_utils.js";
  * Returns query planner part of explain for every node in the explain report.
  */
 export function getQueryPlanners(explain) {
-    return getAllNodeExplains(explain).map(explain => {
-        const queryPlanner = getNestedProperty(explain, "queryPlanner");
-        return queryPlanner ? queryPlanner : explain;
+    return getAllNodeExplains(explain).flatMap(nodeExplain => {
+        const queryPlanners = getNestedProperties(nodeExplain, "queryPlanner");
+        return queryPlanners.length == 0 ? [nodeExplain] : queryPlanners;
     });
 }
 
@@ -44,10 +44,36 @@ export function getQueryPlanner(explain) {
  * the original explain output in case of a single replica set.
  */
 export function getAllNodeExplains(explain) {
-    const shards = getNestedProperty(explain, "shards");
+    let shardsExplain = [];
+
+    // If 'splitPipeline' is defined, there could be explains for each shard in the 'mergerPart' of
+    // the 'splitPipeline', e.g. $unionWith.
+    if (explain.splitPipeline) {
+        const splitPipelineShards = getNestedProperties(explain.splitPipeline, "shards");
+        shardsExplain.push(...splitPipelineShards.flatMap(Object.values));
+    }
+
+    if (explain.shards) {
+        shardsExplain.push(...Object.values(explain.shards));
+    }
+
+    // NOTE: When shards explain is present in the 'queryPlanner.winningPlan' the shard explains are
+    // placed in the array and therefore there is no need to call Object.values() on each element.
+    const shards = (function() {
+        if (explain.hasOwnProperty("queryPlanner") &&
+            explain.queryPlanner.hasOwnProperty("winningPlan")) {
+            return explain.queryPlanner.winningPlan.shards;
+        }
+
+        return null;
+    }());
     if (shards) {
-        const shardNames = Object.keys(shards);
-        return shardNames.map(shardName => shards[shardName]);
+        assert(Array.isArray(shards), shards);
+        shardsExplain.push(...shards);
+    }
+
+    if (shardsExplain.length > 0) {
+        return shardsExplain;
     }
     return [explain];
 }
@@ -403,21 +429,13 @@ export function getExecutionStages(root) {
  * This helper function can be used for any optimizer.
  */
 export function getExecutionStats(root) {
-    const allExecutionStats = [];
     if (root.hasOwnProperty("shards")) {
-        // This test assumes that there is only one shard in the cluster.
-        for (let shardExplain of getAllNodeExplains(root)) {
-            allExecutionStats.push(shardExplain.executionStats);
-        }
-        return allExecutionStats;
+        return Object.values(root.shards).map(shardExplain => shardExplain.executionStats);
     }
     assert(root.hasOwnProperty("executionStats"), root);
     if (root.executionStats.hasOwnProperty("executionStages") &&
         root.executionStats.executionStages.hasOwnProperty("shards")) {
-        for (let shardExecutionStats of root.executionStats.executionStages.shards) {
-            allExecutionStats.push(shardExecutionStats);
-        }
-        return allExecutionStats;
+        return root.executionStats.executionStages.shards;
     }
     return [root.executionStats];
 }
@@ -702,18 +720,22 @@ export function isEofPlan(db, root) {
     return planHasStage(db, root, "EOF");
 }
 
+export function isIdhackOrExpress(db, root) {
+    // SERVER-77719: Ensure that the decision for using the scan lines up with CQF optimizer.
+    return isExpress(db, root) || isIdhack(db, root);
+}
+
 /**
  * Returns true if the BSON representation of a plan rooted at 'root' is using
  * the idhack fast path, and false otherwise. These can be represented either as
- * explicit 'IDHACK' or 'EXPRESS' stages, or as 'CLUSTERED_IXSCAN' stages with equal min & max
+ * explicit 'IDHACK' or as 'CLUSTERED_IXSCAN' stages with equal min & max
  * record bounds in the case of clustered collections.
  *
  * This helper function can be used only with classic optimizer (TODO SERVER-77719: address this
  * behavior).
  */
-export function isIdhackOrExpress(db, root) {
-    // SERVER-77719: Ensure that the decision for using the scan lines up with CQF optimizer.
-    if (planHasStage(db, root, "IDHACK") || isExpress(db, root)) {
+export function isIdhack(db, root) {
+    if (planHasStage(db, root, "IDHACK")) {
         return true;
     }
     if (!isClusteredIxscan(db, root)) {
@@ -1062,27 +1084,29 @@ export function assertFetchFilter({coll, predicate, expectedFilter, nReturned}) 
 }
 
 /**
- * Recursively checks if a javascript object contains a nested property key and returns the value.
- * Note, this only recurses into other objects, array elements are ignored.
- *
- * This helper function can be used for any optimizer.
+ * Recursively checks if a javascript object contains a nested property key and returns the values.
+ * NOTE: only recurses into other objects, array elements are ignored.
  */
-function getNestedProperty(object, key) {
-    if (typeof object !== "object") {
-        return null;
-    }
+function getNestedProperties(object, key) {
+    let accumulator = [];
 
-    for (const k in object) {
-        if (k == key) {
-            return object[k];
+    function traverse(object) {
+        if (typeof object !== "object") {
+            return;
         }
 
-        const result = getNestedProperty(object[k], key);
-        if (result) {
-            return result;
+        for (const k in object) {
+            if (k == key) {
+                accumulator.push(object[k]);
+            }
+
+            traverse(object[k]);
         }
+        return;
     }
-    return null;
+
+    traverse(object);
+    return accumulator;
 }
 
 /**
@@ -1091,18 +1115,9 @@ function getNestedProperty(object, key) {
  * This helper function can be used for any optimizer.
  */
 export function getEngine(explain) {
-    const sbePlans = getQueryPlanners(explain).map(
-        queryPlanner => getNestedProperty(queryPlanner, "slotBasedPlan"));
-
-    if (sbePlans.every(plan => plan)) {
-        return "sbe";
-    }
-
-    if (sbePlans.every(plan => !plan)) {
-        return "classic"
-    }
-
-    assert(false, "Some shards are using SBE, while others are using Classic");
+    const sbePlans = getQueryPlanners(explain).flatMap(
+        queryPlanner => getNestedProperties(queryPlanner, "slotBasedPlan"));
+    return sbePlans.length == 0 ? "classic" : "sbe";
 }
 
 /**

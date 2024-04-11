@@ -106,6 +106,7 @@
 #include "mongo/db/repl/tenant_migration_decoration.h"
 #include "mongo/db/repl/transaction_oplog_application.h"
 #include "mongo/db/repl/update_position_args.h"
+#include "mongo/db/replica_set_endpoint_sharding_state.h"
 #include "mongo/db/server_options.h"
 #include "mongo/db/serverless/serverless_operation_lock_registry.h"
 #include "mongo/db/session/internal_session_pool.h"
@@ -200,6 +201,8 @@ MONGO_FAIL_POINT_DEFINE(hangBeforeNewConfigValidationChecks);
 MONGO_FAIL_POINT_DEFINE(setCustomErrorInHelloResponseMongoD);
 // Throws right before the call into recoverTenantMigrationAccessBlockers.
 MONGO_FAIL_POINT_DEFINE(throwBeforeRecoveringTenantMigrationAccessBlockers);
+// Hang before allowing the transition from RECOVERING to SECONDARY.
+MONGO_FAIL_POINT_DEFINE(hangBeforeFinishRecovery);
 
 Atomic64Metric& replicationWaiterListMetric =
     *MetricBuilder<Atomic64Metric>("repl.waiters.replication");
@@ -868,6 +871,7 @@ void ReplicationCoordinatorImpl::_initialSyncerCompletionFunction(
     invariant(setFollowerMode(MemberState::RS_RECOVERING));
     auto opCtxHolder = cc().makeOperationContext();
     _externalState->startSteadyStateReplication(opCtxHolder.get(), this);
+    finishRecoveryIfEligible(opCtxHolder.get());
     // This log is used in tests to ensure we made it to this point.
     LOGV2_DEBUG(4853000, 1, "initial sync complete.");
 }
@@ -875,6 +879,7 @@ void ReplicationCoordinatorImpl::_initialSyncerCompletionFunction(
 void ReplicationCoordinatorImpl::_startDataReplication(OperationContext* opCtx) {
     if (_startedSteadyStateReplication.swap(true)) {
         // This is not the first call.
+        finishRecoveryIfEligible(opCtx);
         return;
     }
 
@@ -901,6 +906,7 @@ void ReplicationCoordinatorImpl::_startDataReplication(OperationContext* opCtx) 
         // an initial sync.
         _replicationProcess->getConsistencyMarkers()->setInitialSyncIdIfNotSet(opCtx);
         _externalState->startSteadyStateReplication(opCtx, this);
+        finishRecoveryIfEligible(opCtx);
         return;
     }
 
@@ -967,6 +973,11 @@ void ReplicationCoordinatorImpl::startup(OperationContext* opCtx,
 
     invariant(_settings.isReplSet());
     invariant(!ReplSettings::shouldRecoverFromOplogAsStandalone());
+
+    // Do not modify local replication metadata if we are starting in magic restore mode.
+    if (storageGlobalParams.magicRestore) {
+        return;
+    }
 
     _storage->initializeStorageControlsForReplication(opCtx->getServiceContext());
 
@@ -1337,7 +1348,6 @@ void ReplicationCoordinatorImpl::signalDrainComplete(OperationContext* opCtx,
     }
     lk.unlock();
 
-    _externalState->onDrainComplete(opCtx);
     ReplicaSetAwareServiceRegistry::get(_service).onStepUpBegin(opCtx, termWhenBufferIsEmpty);
 
     if (MONGO_unlikely(hangBeforeRSTLOnDrainComplete.shouldFail())) {
@@ -1362,6 +1372,7 @@ void ReplicationCoordinatorImpl::signalDrainComplete(OperationContext* opCtx,
         return;
     }
     _applierState = ApplierState::Stopped;
+    _externalState->onDrainComplete(opCtx);
 
     invariant(_getMemberState_inlock().primary());
     invariant(!_readWriteAbility->canAcceptNonLocalWrites(opCtx));
@@ -3086,7 +3097,7 @@ void ReplicationCoordinatorImpl::stepDown(OperationContext* opCtx,
             // attempt, we might as well spend whatever time we need to acquire it now.  For
             // the same reason, we also disable lock acquisition interruption, to guarantee that
             // we get the lock eventually.
-            UninterruptibleLockGuard noInterrupt(shard_role_details::getLocker(opCtx));  // NOLINT.
+            UninterruptibleLockGuard noInterrupt(opCtx);  // NOLINT.
 
             // Since we have released the RSTL lock at this point, there can be some read
             // operations sneaked in here, that might hold global lock in S mode or blocked on
@@ -3217,7 +3228,7 @@ bool ReplicationCoordinatorImpl::isWritablePrimaryForReportingPurposes() {
 bool ReplicationCoordinatorImpl::canAcceptWritesForDatabase(OperationContext* opCtx,
                                                             const DatabaseName& dbName) {
     // The answer isn't meaningful unless we hold the ReplicationStateTransitionLock.
-    invariant(shard_role_details::getLocker(opCtx)->isRSTLLocked() || opCtx->isLockFreeReadsOp());
+    invariant(opCtx->isLockFreeReadsOp() || shard_role_details::getLocker(opCtx)->isRSTLLocked());
     return canAcceptWritesForDatabase_UNSAFE(opCtx, dbName);
 }
 
@@ -3325,7 +3336,7 @@ bool ReplicationCoordinatorImpl::_isCollectionReplicated(OperationContext* opCtx
 Status ReplicationCoordinatorImpl::checkCanServeReadsFor(OperationContext* opCtx,
                                                          const NamespaceString& ns,
                                                          bool secondaryOk) {
-    invariant(shard_role_details::getLocker(opCtx)->isRSTLLocked() || opCtx->isLockFreeReadsOp());
+    invariant(opCtx->isLockFreeReadsOp() || shard_role_details::getLocker(opCtx)->isRSTLLocked());
     return checkCanServeReadsFor_UNSAFE(opCtx, ns, secondaryOk);
 }
 
@@ -3405,8 +3416,8 @@ bool ReplicationCoordinatorImpl::isInPrimaryOrSecondaryState_UNSAFE() const {
 
 bool ReplicationCoordinatorImpl::shouldRelaxIndexConstraints(OperationContext* opCtx,
                                                              const NamespaceString& ns) {
-    if (ReplSettings::shouldRecoverFromOplogAsStandalone() || !recoverToOplogTimestamp.empty() ||
-        tenantMigrationInfo(opCtx)) {
+    if (storageGlobalParams.magicRestore || ReplSettings::shouldRecoverFromOplogAsStandalone() ||
+        !recoverToOplogTimestamp.empty() || tenantMigrationInfo(opCtx)) {
         return true;
     }
     return !canAcceptWritesFor(opCtx, ns);
@@ -4117,7 +4128,7 @@ Status ReplicationCoordinatorImpl::_doReplSetReconfig(OperationContext* opCtx,
     // do a quick and cheap pass first to see if host and port exist in the new config. This is safe
     // as we are not allowed to have the same HostAndPort in the config twice. Matching HostandPort
     // implies matching isSelf, and it is actually preferrable to avoid checking the latter as it is
-    // succeptible to transient DNS errors.
+    // susceptible to transient DNS errors.
     auto quickIndex =
         _selfIndex >= 0 ? findOwnHostInConfigQuick(newConfig, getMyHostAndPort()) : -1;
     if (quickIndex >= 0) {
@@ -5275,6 +5286,14 @@ ReplicationCoordinatorImpl::_setCurrentRSConfig(WithLock lk,
     } else {
         LOGV2(21394, "This node is not a member of the config");
     }
+    if (replica_set_endpoint::isFeatureFlagEnabledIgnoreFCV() &&
+        serverGlobalParams.clusterRole.has(ClusterRole::ConfigServer)) {
+        // The feature flag check here needs to ignore the FCV since the
+        // ReplicaSetEndpointShardingState needs to be maintained even before the FCV is fully
+        // upgraded.
+        replica_set_endpoint::ReplicaSetEndpointShardingState::get(opCtx)->setIsReplicaSetMember(
+            _selfIndex >= 0);
+    }
 
     // Wake up writeConcern waiters that are no longer satisfiable due to the rsConfig change.
     _replicationWaiterList.setValueIf_inlock([this](const OpTime& opTime,
@@ -5746,6 +5765,10 @@ void ReplicationCoordinatorImpl::_setStableTimestampForStorage(WithLock lk) {
 }
 
 void ReplicationCoordinatorImpl::finishRecoveryIfEligible(OperationContext* opCtx) {
+    if (MONGO_unlikely(hangBeforeFinishRecovery.shouldFail())) {
+        hangBeforeFinishRecovery.pauseWhileSet(opCtx);
+    }
+
     // Check to see if we can immediately return without taking any locks.
     if (isInPrimaryOrSecondaryState_UNSAFE()) {
         return;
@@ -6432,7 +6455,7 @@ bool ReplicationCoordinatorImpl::ReadWriteAbility::canServeNonLocalReads(
     OperationContext* opCtx) const {
     // We must be holding the RSTL.
     invariant(opCtx);
-    invariant(shard_role_details::getLocker(opCtx)->isRSTLLocked() || opCtx->isLockFreeReadsOp());
+    invariant(opCtx->isLockFreeReadsOp() || shard_role_details::getLocker(opCtx)->isRSTLLocked());
     return _canServeNonLocalReads.loadRelaxed();
 }
 

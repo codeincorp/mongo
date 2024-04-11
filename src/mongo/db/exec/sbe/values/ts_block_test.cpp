@@ -32,7 +32,9 @@
 #include "mongo/bson/json.h"
 #include "mongo/bson/util/bsoncolumn.h"
 #include "mongo/db/exec/document_value/document.h"
+#include "mongo/db/exec/sbe/sbe_block_test_helpers.h"
 #include "mongo/db/exec/sbe/sbe_unittest.h"
+#include "mongo/db/exec/sbe/values/bsoncolumn_materializer.h"
 #include "mongo/db/exec/sbe/values/cell_interface.h"
 #include "mongo/db/exec/sbe/values/ts_block.h"
 #include "mongo/db/exec/sbe/values/value.h"
@@ -103,7 +105,7 @@ std::unique_ptr<value::TsBlock> makeTsBlockFromBucket(const BSONObj& bucket, Str
                                             // isTimefield: this check is only safe for the tests
                                             // here where the time field is called 'time'.
                                             fieldName == "time",
-                                            false, /* blockBasedDecompressionEnabled */
+                                            true, /* blockBasedDecompressionEnabled */
                                             min,
                                             max);
 }
@@ -441,6 +443,7 @@ TEST_F(SbeValueTest, TsBlockMinMaxV3Schema) {
         }
     }
 }
+
 const BSONObj kBucketWithMinMaxAndArrays = fromjson(R"(
 {
         "_id" : ObjectId("64a33d9cdf56a62781061048"),
@@ -513,4 +516,172 @@ TEST_F(SbeValueTest, TsBlockFillEmpty) {
     }
 }
 
+const BSONObj kBucketWithMixedNumbers = fromjson(R"(
+{
+    "_id" : ObjectId("64a33d9cdf56a62781061048"),
+    "control" : {
+        "version" : 1,
+        "min": {
+            "_id": 0,
+            "time": {$date: "2023-06-30T21:29:00.000Z"},
+            "num": NumberLong(123)
+        },
+        "max": {
+            "_id": 2,
+            "time": {$date: "2023-06-30T21:29:15.088Z"},
+            "num": NumberLong(789)
+        }
+    },
+    "meta" : "A",
+    "data" : {
+        "_id" : {"0" : 0, "1": 1, "2" : 2},
+        "time" : {
+            "0" : {$date: "2023-06-30T21:29:00.568Z"},
+            "1" : {$date: "2023-06-30T21:29:09.968Z"},
+            "2" : {$date: "2023-06-30T21:29:15.088Z"}
+        },
+        num: {"0": NumberLong(123),
+              "1": NumberInt(456),
+              "2": NumberLong(789)}
+    }
+})");
+
+TEST_F(SbeValueTest, FillType) {
+    {
+        // Tests on the "time" field.
+        auto timeBlock = makeTsBlockFromBucket(kBucketWithMixedNumbers, "time");
+
+        auto [fillTag, fillVal] = makeDecimal("1234.5678");
+        value::ValueGuard fillGuard{fillTag, fillVal};
+
+        {
+            uint32_t nullUndefinedTypeMask = static_cast<uint32_t>(
+                getBSONTypeMask(BSONType::jstNULL) | getBSONTypeMask(BSONType::Undefined));
+
+            auto out = timeBlock->fillType(nullUndefinedTypeMask, fillTag, fillVal);
+
+            // The type mask won't match the control min/max tags, so no work needs to be done.
+            ASSERT_EQ(out, nullptr);
+        }
+
+        {
+            uint32_t dateTypeMask = static_cast<uint32_t>(getBSONTypeMask(BSONType::Date));
+
+            auto out = timeBlock->fillType(dateTypeMask, fillTag, fillVal);
+            ASSERT_NE(out, nullptr);
+            auto outVal = value::bitcastFrom<value::ValueBlock*>(out.get());
+            assertBlockEq(value::TypeTags::valueBlock,
+                          outVal,
+                          TypedValues{{fillTag, fillVal}, {fillTag, fillVal}, {fillTag, fillVal}});
+        }
+    }
+
+    {
+        // Test on the "num" field.
+        auto numBlock = makeTsBlockFromBucket(kBucketWithMixedNumbers, "num");
+
+        auto extracted = numBlock->extract();
+
+        auto [fillTag, fillVal] = makeDecimal("1234.5678");
+        value::ValueGuard fillGuard{fillTag, fillVal};
+
+        {
+            uint32_t arrayStringTypeMask = static_cast<uint32_t>(getBSONTypeMask(BSONType::Array) |
+                                                                 getBSONTypeMask(BSONType::String));
+
+            auto out = numBlock->fillType(arrayStringTypeMask, fillTag, fillVal);
+
+            // The type mask won't match the control min/max tags, so no work needs to be done.
+            ASSERT_EQ(out, nullptr);
+        }
+
+        {
+            // The min and max won't match this tag since they are NumberLongs but there is a value
+            // in the block that should match this tag.
+            uint32_t int32TypeMask = static_cast<uint32_t>(getBSONTypeMask(BSONType::NumberInt));
+
+            auto out = numBlock->fillType(int32TypeMask, fillTag, fillVal);
+            ASSERT_NE(out, nullptr);
+            auto outVal = value::bitcastFrom<value::ValueBlock*>(out.get());
+            assertBlockEq(value::TypeTags::valueBlock,
+                          outVal,
+                          TypedValues{extracted[0], {fillTag, fillVal}, extracted[2]});
+        }
+    }
+}
+
+const BSONObj kBucketWithBigScalars = fromjson(R"(
+{
+    "_id" : ObjectId("64a33d9cdf56a62781061048"),
+    "control" : {
+        "version" : 1,
+        "min": {
+            "_id": 0,
+            "time": {$date: "2023-06-30T21:29:00.000Z"},
+            "bigString": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "num": 123
+        },
+        "max": {
+            "_id": 2,
+            "time": {$date: "2023-06-30T21:29:15.088Z"},
+            "bigString": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+            "num": 999
+        }
+    },
+    "meta" : "A",
+    "data" : {
+        "_id" : {"0" : 0, "1": 1, "2" : 2},
+        "time" : {
+            "0" : {$date: "2023-06-30T21:29:00.568Z"},
+            "1" : {$date: "2023-06-30T21:29:09.968Z"},
+            "2" : {$date: "2023-06-30T21:29:15.088Z"}
+        },
+        bigString: {"0": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "1": "bb",
+                    "2": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},
+        num: {"0": 456,
+              "1": 123,
+              "2": 999}
+    }
+})");
+
+
+TEST_F(SbeValueTest, VerifyDecompressedBlockType) {
+    {
+        // Extracting from an uncompressed bucket always does the copy.
+        auto tsBlock = makeTsBlockFromBucket(kBucketWithBigScalars, "bigString");
+        [[maybe_unused]] auto unusedDeblockedVals = tsBlock->extract();
+
+        auto decompressedInternalBlock = tsBlock->decompressedBlock_forTest();
+        ASSERT(decompressedInternalBlock);
+        ASSERT(dynamic_cast<value::HeterogeneousBlock*>(decompressedInternalBlock));
+    }
+
+    auto compressedBucketOpt =
+        timeseries::compressBucket(kBucketWithBigScalars, "time"_sd, {}, false).compressedBucket;
+    ASSERT(compressedBucketOpt) << "Should have been able to create compressed v2 bucket";
+    auto compressedBucket = *compressedBucketOpt;
+
+    {
+        // Extracting from a column with deep values from a compressed bucket avoids the copy.
+        auto tsBlock = makeTsBlockFromBucket(compressedBucket, "bigString");
+        [[maybe_unused]] auto unusedDeblockedVals = tsBlock->extract();
+
+        auto decompressedInternalBlock = tsBlock->decompressedBlock_forTest();
+        ASSERT(decompressedInternalBlock);
+        ASSERT(dynamic_cast<value::ElementStorageValueBlock*>(decompressedInternalBlock));
+    }
+
+    {
+        // Extracting from a column with shallow values from a compressed bucket gives a
+        // HomogeneousBlock.
+        auto tsBlock = makeTsBlockFromBucket(compressedBucket, "num");
+        [[maybe_unused]] auto unusedDeblockedVals = tsBlock->extract();
+
+        auto decompressedInternalBlock = tsBlock->decompressedBlock_forTest();
+        ASSERT(decompressedInternalBlock);
+        std::cout << "ian: " << typeid(*decompressedInternalBlock).name() << std::endl;
+        ASSERT(dynamic_cast<value::Int32Block*>(decompressedInternalBlock));
+    }
+}
 }  // namespace mongo::sbe

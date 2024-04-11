@@ -73,6 +73,7 @@
 #include "mongo/db/storage/storage_options.h"
 #include "mongo/db/storage/wiredtiger/oplog_truncate_marker_parameters_gen.h"
 #include "mongo/db/storage/wiredtiger/wiredtiger_begin_transaction_block.h"
+#include "mongo/db/storage/wiredtiger/wiredtiger_compiled_configuration.h"
 #include "mongo/db/storage/wiredtiger/wiredtiger_cursor_helpers.h"
 #include "mongo/db/storage/wiredtiger/wiredtiger_customization_hooks.h"
 #include "mongo/db/storage/wiredtiger/wiredtiger_global_options.h"
@@ -137,6 +138,16 @@ MONGO_STATIC_ASSERT(kCurrentRecordStoreVersion >= kMinimumRecordStoreVersion);
 MONGO_STATIC_ASSERT(kCurrentRecordStoreVersion <= kMaximumRecordStoreVersion);
 
 const double kNumMSInHour = 1000 * 60 * 60;
+
+static CompiledConfiguration lowerInclusiveBoundConfig("WT_CURSOR.bound",
+                                                       "bound=lower,inclusive=true");
+static CompiledConfiguration lowerExclusiveBoundConfig("WT_CURSOR.bound",
+                                                       "bound=lower,inclusive=false");
+static CompiledConfiguration upperInclusiveBoundConfig("WT_CURSOR.bound",
+                                                       "bound=upper,inclusive=true");
+static CompiledConfiguration upperExclusiveBoundConfig("WT_CURSOR.bound",
+                                                       "bound=upper,inclusive=false");
+static CompiledConfiguration clearBoundConfig("WT_CURSOR.bound", "action=clear");
 
 void checkOplogFormatVersion(OperationContext* opCtx, const std::string& uri) {
     StatusWith<BSONObj> appMetadata =
@@ -850,6 +861,23 @@ int64_t WiredTigerRecordStore::freeStorageSize(OperationContext* opCtx) const {
     return WiredTigerUtil::getIdentReuseSize(session->getSession(), getURI());
 }
 
+void WiredTigerRecordStore::_updateLargestRecordId(OperationContext* opCtx, long long largestSeen) {
+    invariant(_keyFormat == KeyFormat::Long);
+    invariant(!_isOplog);
+
+    // Make sure to inialize first; otherwise the compareAndSwap can succeed trivially.
+    _initNextIdIfNeeded(opCtx);
+
+    // Since the 'largestSeen' is the largest we've seen, we need to set the _nextIdNum to one
+    // higher than that: to 'largestSeen + 1'. This is because if we assign recordIds,
+    // we start at _nextIdNum. Therefore if it was set to 'largestSeen', it would clash with
+    // the current largest recordId.
+    largestSeen++;
+    auto nextIdNum = _nextIdNum.load();
+    while (largestSeen > nextIdNum && !_nextIdNum.compareAndSwap(&nextIdNum, largestSeen)) {
+    }
+}
+
 // Retrieve the value from a positioned cursor.
 RecordData WiredTigerRecordStore::_getData(const WiredTigerCursor& cursor) const {
     WT_ITEM value;
@@ -1053,11 +1081,14 @@ Status WiredTigerRecordStore::_insertRecords(OperationContext* opCtx,
     WT_CURSOR* c = curwrap.get();
     invariant(c);
 
-    Record highestIdRecord;
     invariant(nRecords != 0);
 
     if (_keyFormat == KeyFormat::Long) {
-        long long nextId = _isOplog ? 0 : _reserveIdBlock(opCtx, nRecords);
+        bool areRecordIdsProvided = !records->id.isNull() && !_isOplog;
+        RecordId highestRecordIdProvided;
+
+        long long nextId =
+            (_isOplog || areRecordIdsProvided) ? 0 : _reserveIdBlock(opCtx, nRecords);
 
         // Non-clustered record stores will extract the RecordId key for the oplog and generate
         // unique int64_t RecordIds if RecordIds are not set.
@@ -1090,16 +1121,35 @@ Status WiredTigerRecordStore::_insertRecords(OperationContext* opCtx,
                 } else {
                     record.id = std::move(swRecordId.getValue());
                 }
+                // The records being inserted into the oplog must have increasing
+                // recordId. Therefore the last record has the highest recordId.
+                dassert(i == 0 || records[i].id > records[i - 1].id);
             } else {
                 // Some RecordStores, like TemporaryRecordStores, may want to set their own
                 // RecordIds.
-                if (record.id.isNull()) {
+                if (!areRecordIdsProvided) {
+                    // Since a recordId wasn't provided for the first record, the recordId
+                    // shouldn't have been provided for any record.
+                    invariant(record.id.isNull());
                     record.id = RecordId(nextId++);
                     invariant(record.id.isValid());
+                } else {
+                    // Since a recordId was provided for the first record, the recordId
+                    // should have been provided for all records.
+                    invariant(!record.id.isNull());
+                    if (record.id > highestRecordIdProvided) {
+                        highestRecordIdProvided = record.id;
+                    }
                 }
             }
-            dassert(record.id > highestIdRecord.id);
-            highestIdRecord = record;
+        }
+
+        // Update the highest recordId we've seen so far on this record store, in case
+        // any of the inserts we are performing has a higher recordId.
+        // We only have to do this when the records we are inserting were accompanied
+        // by caller provided recordIds.
+        if (areRecordIdsProvided) {
+            _updateLargestRecordId(opCtx, highestRecordIdProvided.getLong());
         }
     }
 
@@ -1168,8 +1218,10 @@ Status WiredTigerRecordStore::_insertRecords(OperationContext* opCtx,
     _changeNumRecordsAndDataSize(opCtx, nRecords, totalLength);
 
     if (_oplogTruncateMarkers) {
+        invariant(_isOplog);
+        // records[nRecords - 1] is the record in the oplog with the highest recordId.
         auto wall = [&] {
-            BSONObj obj = highestIdRecord.data.toBson();
+            BSONObj obj = records[nRecords - 1].data.toBson();
             BSONElement ele = obj[repl::DurableOplogEntry::kWallClockTimeFieldName];
             if (!ele) {
                 // This shouldn't happen in normal cases, but this is needed because some tests do
@@ -1181,7 +1233,7 @@ Status WiredTigerRecordStore::_insertRecords(OperationContext* opCtx,
             }
         }();
         _oplogTruncateMarkers->updateCurrentMarkerAfterInsertOnCommit(
-            opCtx, totalLength, highestIdRecord.id, wall, nRecords);
+            opCtx, totalLength, records[nRecords - 1].id, wall, nRecords);
     }
 
     return Status::OK();
@@ -2196,7 +2248,7 @@ RecordId WiredTigerRecordStoreCursor::seekIdCommon(const RecordId& start,
     dassert(shard_role_details::getLocker(_opCtx)->isReadLocked());
 
     // Ensure an active transaction is open.
-    WiredTigerRecoveryUnit::get(_opCtx)->getSession();
+    auto session = WiredTigerRecoveryUnit::get(_opCtx)->getSession();
     _skipNextAdvance = false;
 
     // If the cursor is positioned, we need to reset it so that we can set bounds. This is not the
@@ -2209,17 +2261,13 @@ RecordId WiredTigerRecordStoreCursor::seekIdCommon(const RecordId& start,
     WiredTigerRecordStore::CursorKey key = makeCursorKey(start, _keyFormat);
     setKey(c, &key);
 
-    const char* config;
-    // The default bound is inclusive.
-    if (_forward) {
-        config = boundInclusion == BoundInclusion::kExclude ? "bound=lower,inclusive=false"
-                                                            : "bound=lower";
-    } else {
-        config = boundInclusion == BoundInclusion::kExclude ? "bound=upper,inclusive=false"
-                                                            : "bound=upper";
-    }
+    auto const& config = _forward
+        ? (boundInclusion == BoundInclusion::kInclude ? lowerInclusiveBoundConfig
+                                                      : lowerExclusiveBoundConfig)
+        : (boundInclusion == BoundInclusion::kInclude ? upperInclusiveBoundConfig
+                                                      : upperExclusiveBoundConfig);
 
-    invariantWTOK(c->bound(c, config), c->session);
+    invariantWTOK(c->bound(c, config.getConfig(session)), c->session);
     _boundSet = true;
 
     int ret =
@@ -2245,14 +2293,15 @@ boost::optional<Record> WiredTigerRecordStoreCursor::seekExactCommon(const Recor
     // Ensure an active transaction is open. While WiredTiger supports using cursors on a session
     // without an active transaction (i.e. an implicit transaction), that would bypass configuration
     // options we pass when we explicitly start transactions in the RecoveryUnit.
-    WiredTigerRecoveryUnit::get(_opCtx)->getSession();
+    auto session = WiredTigerRecoveryUnit::get(_opCtx)->getSession();
 
     _skipNextAdvance = false;
     WT_CURSOR* c = _cursor->get();
 
-    // Reset the cursor before using it in case it has any saved bounds from a previous seek.
+    // Before calling WT search, clear any saved bounds from a previous seek.
     if (_boundSet) {
-        resetCursor();
+        invariantWTOK(c->bound(c, clearBoundConfig.getConfig(session)), c->session);
+        _boundSet = false;
     }
 
     auto key = makeCursorKey(id, _keyFormat);

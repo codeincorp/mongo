@@ -130,6 +130,10 @@ public:
 
     std::unique_ptr<ValueBlock> fillEmpty(TypeTags fillTag, Value fillVal) override;
 
+    std::unique_ptr<ValueBlock> fillType(uint32_t typeMask,
+                                         TypeTags fillTag,
+                                         Value fillVal) override;
+
     // Returns true if none of the values in this block are arrays or objects. Returns false if
     // any _may_ be arrays or objects.
     bool hasNoObjsOrArrays() const {
@@ -172,6 +176,16 @@ public:
         return _isTimeField;
     }
     boost::optional<bool> tryHasArray() const override;
+
+    // Whether this TS block was decompressed. This is not a method on the block API.
+    bool decompressed() const {
+        return static_cast<bool>(_decompressedBlock);
+    }
+
+    // Test-only helper.
+    ValueBlock* decompressedBlock_forTest() {
+        return _decompressedBlock.get();
+    }
 
 private:
     /**

@@ -471,12 +471,17 @@ boost::optional<BSONObj> TenantMigrationDonorService::Instance::reportForCurrent
         bob.append("blockTimestamp", *_stateDoc.getBlockTimestamp());
     }
     if (_stateDoc.getCommitOrAbortOpTime()) {
-        _stateDoc.getCommitOrAbortOpTime()->append(&bob, "commitOrAbortOpTime");
+        _stateDoc.getCommitOrAbortOpTime()->append("commitOrAbortOpTime", &bob);
     }
     if (_stateDoc.getAbortReason()) {
         bob.append("abortReason", *_stateDoc.getAbortReason());
     }
     return bob.obj();
+}
+
+TenantMigrationDonorDocument TenantMigrationDonorService::Instance::getStateDoc() const {
+    stdx::lock_guard lk(_mutex);
+    return _stateDoc;
 }
 
 void TenantMigrationDonorService::Instance::checkIfOptionsConflict(const BSONObj& options) const {
@@ -503,7 +508,7 @@ void TenantMigrationDonorService::Instance::checkIfOptionsConflict(const BSONObj
         uasserted(ErrorCodes::ConflictingOperationInProgress,
                   str::stream() << "Found active migration for migrationId \""
                                 << _migrationUuid.toBSON() << "\" with different options "
-                                << tenant_migration_util::redactStateDoc(_stateDoc.toBSON()));
+                                << tenant_migration_util::redactStateDoc(getStateDoc().toBSON()));
     }
 }
 
