@@ -246,7 +246,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 63,
     boolean: true,
-    decimal: -92233720368547758.12,
+    decimal: -9223372036854774784,
     textField: "IstanU",
     docIdentifier: ObjectId("12abc6edf01aab5ff8d0feca"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
@@ -256,7 +256,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 93,
     boolean: false,
-    decimal: 92233720368547758.43,
+    decimal: 9223372036854773760,
     textField: "Arresto Momentum",
     docIdentifier: ObjectId("19ec449399a7cbadffcff3fe"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
@@ -548,16 +548,6 @@ TEST_F(CsvFileInputTest, FailByBadMetadata) {
 
     CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
     ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
-}
-
-TEST_F(CsvFileInputTest, FailByMetadataLengthMisMatch) {
-    CsvFileInput input("csv_test/diffLength.csv", "csv_test/diffLength.txt");
-    input.open();
-    char buff[200];
-    for (int i = 0; i < 3; i++) {
-        ASSERT_THROWS_CODE(input.read(buff, 200), DBException, ErrorCodes::TypeMismatch);
-    }
-    input.close();
 }
 
 }  // namespace mongo

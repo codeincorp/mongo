@@ -281,14 +281,19 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     }
 
     auto data = parseLine(record);
-    uassert(ErrorCodes::TypeMismatch,
-            "Metadata specifies {} fields but current record has {}"_format(_metadata.size(),
-                                                                            data.size()),
-            data.size() >= _metadata.size());
+    if (data.size() != _metadata.size()) {
+        LOGV2_WARNING(200000407,
+                      "Metadata specifies {n1} fields but current record has {n2}",
+                      "n1"_attr = _metadata.size(),
+                      "n2"_attr = data.size());
+    }
+
+    // Just process as many fields as possible
+    size_t processableFields = std::min(data.size(), _metadata.size());
 
     BSONObjBuilder builder;
 
-    for (size_t i = 0; i < _metadata.size(); ++i) {
+    for (size_t i = 0; i < processableFields; ++i) {
         if (data[i] == "") {
             builder.appendNull(_metadata[i].fieldName);
             continue;
