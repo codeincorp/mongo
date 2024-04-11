@@ -1,1 +1,1 @@
-property1/int, property2/int, property3/int
+property1/int,property2/int,property3/int,farmer/string,measurement/double,profit/double

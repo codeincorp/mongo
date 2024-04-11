@@ -42,7 +42,9 @@
 #include "mongo/util/assert_util.h"
 
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kCommand
+
 namespace mongo {
+
 using namespace fmt::literals;
 
 CsvFileInput::CsvFileInput(const std::string& fileRelativePath, const std::string& metaFileRelative)
@@ -81,8 +83,8 @@ void CsvFileInput::doOpen() {
             _ifs.is_open());
 }
 
-// caller must ensure that buffer size is greater than or equal to the size of the bsonObject to be
-// returned. If not, it would throw exception (Not enough size in buffer)
+// Caller must ensure that buffer size is greater than or equal to the size of the bsonObject to be
+// returned. If not, it will throw an exception (Not enough size in buffer).
 int CsvFileInput::doRead(char* data, int size) {
     auto bsonObj = readBsonObj();
 
@@ -118,47 +120,49 @@ bool CsvFileInput::isEof() const {
     return _ifs.eof();
 }
 
-// assuming that header is returned by parseLine, which means, each of its element is
-// name of the field with typeInfo
+// Assuming that header is returned by parseLine, which means, each of its element contains
+// name of the field with its typeInfo as string. {"fieldName1/typeName1","fieldName/typeName1"...}
 Metadata CsvFileInput::getMetadata(const std::vector<std::string>& header) {
     constexpr size_t typeNameAbsent = 0;
     Metadata ret;
 
-    size_t i = 0;
+    size_t fieldIndex = 0;
     for (const auto& field : header) {
-        // Test scenario where / is missing
-        size_t index = field.find('/');
-        size_t len = index != std::string::npos ? field.length() - index - 1 : typeNameAbsent;
-        // covers both case where field does not / at all or typename absent after /
+        // Throws an exception when field does not contain '/' at all or typename is absent after
+        // '/'.
+        size_t separatorIndex = field.find('/');
+        size_t fieldLen = separatorIndex != std::string::npos ? field.length() - separatorIndex - 1
+                                                              : typeNameAbsent;
         uassert(200000403,
-                "{}th Field '{}' does not specify typeName."_format(field, i),
-                len > typeNameAbsent);
+                "{}th Field '{}' does not specify typeName."_format(field, fieldIndex),
+                fieldLen > typeNameAbsent);
 
-        auto fieldName = field.substr(0, index);
-        auto typeName = field.substr(index + 1, len);
-        CsvFieldType type;
+        auto fieldName = field.substr(0, separatorIndex);
+        auto typeName = field.substr(separatorIndex + 1, fieldLen);
+        CsvFieldType fieldType;
 
         if (typeName == "int" || typeName == "int32") {
-            type = CsvFieldType::kInt32;
+            fieldType = CsvFieldType::kInt32;
         } else if (typeName == "int64" || typeName == "long") {
-            type = CsvFieldType::kInt64;
+            fieldType = CsvFieldType::kInt64;
         } else if (typeName == "double") {
-            type = CsvFieldType::kDouble;
+            fieldType = CsvFieldType::kDouble;
         } else if (typeName == "bool") {
-            type = CsvFieldType::kBool;
+            fieldType = CsvFieldType::kBool;
         } else if (typeName == "oid") {
-            type = CsvFieldType::kOid;
+            fieldType = CsvFieldType::kOid;
         } else if (typeName == "date") {
-            type = CsvFieldType::kDate;
+            fieldType = CsvFieldType::kDate;
         } else if (typeName == "string") {
-            type = CsvFieldType::kString;
+            fieldType = CsvFieldType::kString;
         } else {
             uasserted(200000404,
-                      "{} type is not supported at {}th field: {}"_format(typeName, i, fieldName));
+                      "{} type is not supported at {}th field: {}"_format(
+                          typeName, fieldIndex, fieldName));
         }
 
-        ret.push_back({std::move(fieldName), type});
-        i++;
+        ret.push_back({std::move(fieldName), fieldType});
+        fieldIndex++;
     }
 
     return ret;
@@ -227,8 +231,8 @@ void appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
                                   const std::string& fieldName,
                                   const std::string& data) {
     constexpr size_t kLengthOidValue = 24;
-    constexpr size_t kOidTypeStr = 8;                      // objectid
-    constexpr size_t kOidTypeStrPrefix = kOidTypeStr + 2;  // objectid("
+    constexpr size_t kOidTypeStr = 8;                      // Length of 'objectid'.
+    constexpr size_t kOidTypeStrPrefix = kOidTypeStr + 2;  // Length of 'objectid(\"'.
 
     std::string mutableData = data;
     if (data[0] == 'O' || data[0] == 'o') {
@@ -245,7 +249,7 @@ void appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     uassert(ErrorCodes::BadValue,
             "Invalid Object Id Format: {}"_format(data),
             mutableData.length() == kLengthOidValue);
-    mongo::OID id = mongo::OID(mutableData);  // throws exception if it detects bad OID
+    mongo::OID id = mongo::OID(mutableData);  // Throws exception if it detects bad OID.
     builder.append(fieldName, id);
 }
 
@@ -271,7 +275,7 @@ void appendTo<CsvFieldType::kBool>(BSONObjBuilder& builder,
 boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     std::string record;
     std::getline(_ifs, record);
-    // if eof is reached, _ifs return false
+    // If eof is reached, _ifs return false.
     if (_ifs.eof() || _ifs.fail()) {
         return boost::none;
     }
@@ -280,7 +284,7 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     uassert(ErrorCodes::TypeMismatch,
             "Metadata specifies {} fields but current record has {}"_format(_metadata.size(),
                                                                             data.size()),
-            data.size() == _metadata.size());
+            data.size() >= _metadata.size());
 
     BSONObjBuilder builder;
 
@@ -314,7 +318,7 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
                     appendTo<CsvFieldType::kDate>(builder, _metadata[i].fieldName, data[i]);
                     break;
             }
-            // catching failed conversion to stoi, stoll, and stod
+            // Catching failed conversion to stoi, stoll, and stod.
         } catch (const std::invalid_argument& e) {
             uasserted(ErrorCodes::BadValue, "{}: {}"_format(e.what(), data[i]));
         } catch (const std::out_of_range& e) {

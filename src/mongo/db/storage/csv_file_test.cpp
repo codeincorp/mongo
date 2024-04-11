@@ -6,6 +6,7 @@
 #include "mongo/unittest/assert.h"
 
 namespace mongo {
+
 using namespace fmt::literals;
 
 class CsvFileInputTest : public unittest::Test {
@@ -35,7 +36,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 13, 
     boolean: true, 
     decimal: 1.2, 
-    textField: "string2", 
+    textField: "Plummer", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment:{$date:"2017-08-06T13:13:59.010+07:00"},
     billionaire: 120000000000
@@ -45,7 +46,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 14, 
     boolean: false, 
     decimal: 5.5, 
-    textField: "string3", 
+    textField: "Chair", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment: {$date:"2019-10-23T21:42:14.144Z"},
     billionaire: 135000000000
@@ -55,7 +56,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 16, 
     boolean: true, 
     decimal: 6.6, 
-    textField: "string4", 
+    textField: "Bottle", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment: {$date:"2016-11-11T01:16:23.543Z"},
     billionaire: 2000000000000
@@ -65,7 +66,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 21, 
     boolean: false, 
     decimal: 0.9, 
-    textField: "string5", 
+    textField: "Tesla", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment:{$date:"2017-10-31T08:23:49.982Z"},
     billionaire: 100000000000000
@@ -75,7 +76,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 15, 
     boolean: true, 
     decimal: 3.3, 
-    textField: "string6", 
+    textField: "Notebook", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment: {$date:"2012-12-23T23:59:54.932Z"},
     billionaire: 53000000000
@@ -85,7 +86,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 18, 
     boolean: true, 
     decimal: 9.1, 
-    textField: "string7", 
+    textField: "JSON", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment:{$date:"1999-04-25T09:37:09.883Z"},
     billionaire: 9000000000
@@ -95,7 +96,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 21, 
     boolean: false, 
     decimal: 3.98, 
-    textField: "string8", 
+    textField: "BSON", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment:{$date:"1970-03-28T07:34:42.390Z"},
     billionaire: 70000000000
@@ -105,7 +106,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 31, 
     boolean: true, 
     decimal: 2.09, 
-    textField: "string9", 
+    textField: "Testosterone", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment: {$date:"2024-03-23T21:21:55.559Z"},
     billionaire: 77000000000
@@ -115,7 +116,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 27, 
     boolean: false, 
     decimal: 12.34, 
-    textField: "string10", 
+    textField: "Chipmunk", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment:{$date:"2023-12-30T12:12:14.645Z"},
     billionaire: 77000000000
@@ -125,7 +126,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 41, 
     boolean: false, 
     decimal: 91.2, 
-    textField: "string11", 
+    textField: "Table", 
     docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
     moment:{$date:"2020-08-23T13:17:39.345Z"},
     billionaire: 77000000000
@@ -135,7 +136,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 52, 
     boolean: false, 
     decimal: 93.2, 
-    textField: "string12", 
+    textField: "Bravo", 
     docIdentifier: ObjectId("660a04700ea7913a8fced3f4"), 
     moment: {$date:"2013-07-03T03:23:23.900+05:00"},
     billionaire: 77000000000
@@ -145,7 +146,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 91, 
     boolean: true, 
     decimal: 0.24, 
-    textField: "string13", 
+    textField: "Beethoven", 
     docIdentifier: ObjectId("660a048f0ea7913a8fced3f6"), 
     moment: {$date:"2006-12-12T12:38:48.985-04:00"},
     billionaire: 77000000000
@@ -155,7 +156,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 123, 
     boolean: true, 
     decimal: 0.111, 
-    textField: "string14", 
+    textField: "Hikaru",
     docIdentifier: ObjectId("660a04910ea7913a8fced3f8"), 
     moment: {$date:"2004-04-04T19:07:21.388-02:00"},
     billionaire: 77000000000
@@ -165,7 +166,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 912, 
     boolean: true, 
     decimal: 1.231, 
-    textField: "string15", 
+    textField: "Spinal Chord", 
     docIdentifier: ObjectId("660a04920ea7913a8fced3fa"), 
     moment: {$date:"2010-11-11T21:21:59.991Z"},
     billionaire: 77000000000
@@ -175,7 +176,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 1023, 
     boolean: false, 
     decimal: 5.121, 
-    textField: "string16", 
+    textField: "Large and Powerful", 
     docIdentifier: ObjectId("660a04930ea7913a8fced3fc"), 
     moment: {$date:"2011-09-09T13:29:31.211-06:00"},
     billionaire: 77000000000
@@ -184,10 +185,81 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 34, 
     boolean: true, 
-    decimal: .123, 
-    textField: "string17", 
+    decimal: 0.123, 
+    textField: "Arresto Momentum", 
     docIdentifier: ObjectId("660a04940ea7913a8fced3fe"), 
     moment: {$date:"2018-01-30T23:00:01.009Z"},
+    billionaire: 77000000000
+})"),
+        fromjson(R"(
+{
+    field1: 102,
+    boolean: false,
+    decimal: 0.123,
+    textField: "SheldonCooper",
+    docIdentifier: ObjectId("66abcf940ea793f3dfceecae"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
+    billionaire: 77111123456
+})"),
+        fromjson(R"(
+{
+    field1: 2020,
+    boolean: false,
+    decimal: 0.123,
+    textField: "ObjectiveC",
+    docIdentifier: ObjectId("ffea04940ee7f19ab8efa1fc"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
+    billionaire: 77000000000
+})"),
+        fromjson(R"(
+{
+    field1: 34,
+    boolean: true,
+    decimal: 0.123,
+    textField: "CLOWN",
+    docIdentifier: ObjectId("abcdef941ea39e3781c0dcfe"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
+    billionaire: 77000000000
+})"),
+        fromjson(R"(
+{
+    field1: 23,
+    boolean: false,
+    decimal: 0.123,
+    textField: "Linux is better than Mac",
+    docIdentifier: ObjectId("abcdef941ea39e3781c0dcfe"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
+    billionaire: 77000000000
+})"),
+        fromjson(R"(
+{
+    field1: 611,
+    boolean: true,
+    decimal: 0.123,
+    textField: "APPLE",
+    docIdentifier: ObjectId("abcdef941ea39e3781c0dcfe"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
+    billionaire: 77000000000
+})"),
+
+        fromjson(R"(
+{
+    field1: 63,
+    boolean: true,
+    decimal: -92233720368547758.12,
+    textField: "IstanU",
+    docIdentifier: ObjectId("12abc6edf01aab5ff8d0feca"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
+    billionaire: 77000000000
+})"),
+        fromjson(R"(
+{
+    field1: 93,
+    boolean: false,
+    decimal: 92233720368547758.43,
+    textField: "Arresto Momentum",
+    docIdentifier: ObjectId("19ec449399a7cbadffcff3fe"),
+    moment: {$date: "2018-01-30T23:00:01.009Z"},
     billionaire: 77000000000
 })")};
 
@@ -216,9 +288,10 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 }
 
 TEST_F(CsvFileInputTest, AbsentField) {
-    std::vector<BSONObj> expected = {
+    std::vector expected = {
 
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "HedgeFund",
     when: {$date: "2020-10-10T10:10:10.101-06:00"}, 
     count: null,
@@ -226,7 +299,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: ObjectId("123456789a123456789b1fcb"),
     correct: true
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: null,
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 56,
@@ -234,7 +308,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: ObjectId("a987654321bdbbcbeebfb528"),
     correct: true
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "Schema", 
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: null,
@@ -242,7 +317,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: null,
     correct: false
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "field1",
     when: null,
     count: 45,
@@ -250,7 +326,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: null,
     correct: true
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "field3",
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 46,
@@ -258,7 +335,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: ObjectId("1234567890abcdefabcd12ef"),
     correct: true
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "Texting", 
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 47,
@@ -266,7 +344,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: null,
     correct: false
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "phone",
     when: null,
     count: 48,
@@ -274,7 +353,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: ObjectId("123456789012345678901234"),
     correct: null
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "Hello World",
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: null,
@@ -282,7 +362,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: null,
     correct: true
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "ipad",
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 49,
@@ -290,7 +371,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: ObjectId("12345678901234567890aaaa"),
     correct: false
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "remote", 
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 50,
@@ -298,7 +380,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     identifier: null,
     correct: null
 })"),
-        fromjson(R"({
+        fromjson(R"(
+{
     things: "controller", 
     when: null,
     count: null,
@@ -415,7 +498,7 @@ TEST_F(CsvFileInputTest, FailByOutOfRange) {
 }
 
 TEST_F(CsvFileInputTest, BufferTooSmall) {
-    // read should throw exception when buffer size is too small
+    // Read should throw exception when buffer size is too small.
     CsvFileInput input("csv_test/bufTooSmall.csv", "csv_test/bufTooSmall.txt");
     input.open();
 
@@ -476,4 +559,5 @@ TEST_F(CsvFileInputTest, FailByMetadataLengthMisMatch) {
     }
     input.close();
 }
+
 }  // namespace mongo
