@@ -37,6 +37,7 @@
 #include <string>
 
 #include "mongo/db/storage/default_path.h"
+#include "mongo/db/storage/error_count.h"
 #include "mongo/db/storage/input_object.h"
 
 namespace mongo {
@@ -79,6 +80,12 @@ public:
     bool isGood() const override;
     bool isFailed() const override;
     bool isEof() const override;
+
+    // without this line, ninja doesn't complain about NamedPipeInput not having this function due
+    // to input_stream.h line 95
+    mongo::ErrorCount getStats() const {
+        return ErrorCount();
+    }
 
 protected:
     void doOpen() override;

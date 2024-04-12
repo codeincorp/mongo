@@ -39,6 +39,7 @@
 #include <boost/optional/optional.hpp>
 #include <fmt/format.h>
 
+#include "error_count.h"
 #include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/record_id.h"
@@ -57,6 +58,8 @@ public:
     }
 
     boost::optional<Record> next() override;
+
+    boost::optional<BSONObj> getStats() const override;
 
     // This block of overrides are all essentially no-ops as they are for lock yielding but the
     // external data source is read-only.
@@ -117,5 +120,7 @@ private:
     std::unique_ptr<InputStream> _streamReader = nullptr;
 
     const VirtualCollectionOptions& _vopts;  // metadata containing the pipe URLs
+
+    mongo::ErrorCount _errorStats = ErrorCount();
 };
 }  // namespace mongo

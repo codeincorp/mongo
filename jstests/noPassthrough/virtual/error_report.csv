@@ -1,0 +1,9 @@
+string,number,long,double,boolean,oid,date
+holyMoly,34,1234567890,35.23,true,123456789012345678901234,2024-04-12T13:36:37.100-06:00
+Christopher Columbus,48,12345678901.2334,48.12,!true,objectid(123456789123456789),2024-04-11T13:34:34.343Z
+Backpack,55.12,33.33,45,incorrect,objectID("1029384756abcdeabcde"),2024-11-11T36:34:63.342Z
+Cannot,3000000000,99000000000000000000,33.4,true,"123456789123456789abcdef,2014-14-14
+smoking Hot,34,12345678901,GGang,boolean,"objectIDobjectIdobjectId",Not A Date Bro
+,-2900000000,-9323372036854775808,90.09,f,objectID("You think this is ID"),201708081111111Z
+Really Really Really Really Really Long String I mean Really Really Long,3,45,1.2,FALSE,objectid("884cdc3ef43ff10ca56e23fd"),Rizz
+Strong and Sound,23Catalog,9000000000,1345.232,yes

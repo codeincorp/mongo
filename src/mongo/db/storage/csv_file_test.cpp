@@ -12,7 +12,7 @@ using namespace fmt::literals;
 class CsvFileInputTest : public unittest::Test {
 protected:
     void setUp() override {
-        system("cp -rn src/mongo/db/storage/csv_test /tmp/");
+        system("cp -r src/mongo/db/storage/csv_test /tmp/");
     }
 };
 
@@ -404,112 +404,131 @@ TEST_F(CsvFileInputTest, AbsentField) {
     input.close();
 }
 
-TEST_F(CsvFileInputTest, FailByBadOID) {
-    CsvFileInput input("csv_test/badOid.csv", "csv_test/badOid.txt");
-    input.open();
+TEST_F(CsvFileInputTest, CollectInvalidOID) {
+    CsvFileInput invalidOid("csv_test/badOid.csv", "csv_test/badOid.txt");
+    invalidOid.open();
 
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 9; i++) {
-        ASSERT_THROWS(input.read(buf, bufSize), DBException);
+    while (!invalidOid.isEof()) {
+        invalidOid.read(buf, bufSize);
     }
-    input.close();
+    invalidOid.close();
+
+    auto errorStatus = invalidOid.getStats();
+    ASSERT_EQ(errorStatus._invalidOid, 13);
+    ASSERT_EQ(errorStatus._invalidInt32, 14);
+    ASSERT_EQ(errorStatus._invalidDate, 14);
+    ASSERT_EQ(errorStatus._totalErrorCount, 41);
 }
 
-TEST_F(CsvFileInputTest, FailByBadInt) {
-    CsvFileInput badInt("csv_test/badInt.csv", "csv_test/badInt.txt");
-    badInt.open();
+TEST_F(CsvFileInputTest, CollectInvalidInt32) {
+    CsvFileInput invalidInt32("csv_test/badInt.csv", "csv_test/badInt.txt");
+    invalidInt32.open();
+    int bufSize = 25;
+    char buf[bufSize];
+
+    while (!invalidInt32.isEof()) {
+        invalidInt32.read(buf, bufSize);
+    }
+    invalidInt32.close();
+
+    auto errorStatus = invalidInt32.getStats();
+    ASSERT_EQ(errorStatus._invalidInt32, 6);
+    ASSERT_EQ(errorStatus._totalErrorCount, 6);
+}
+
+TEST_F(CsvFileInputTest, CollectInvalidDate) {
+    CsvFileInput invalidDate("csv_test/badDate.csv", "csv_test/badDate.txt");
+    invalidDate.open();
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 6; i++) {
-        ASSERT_THROWS_CODE(badInt.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidDate.isEof()) {
+        invalidDate.read(buf, bufSize);
     }
-    badInt.close();
+    invalidDate.close();
+
+    auto errorStatus = invalidDate.getStats();
+    ASSERT_EQ(errorStatus._invalidDate, 4);
+    ASSERT_EQ(errorStatus._totalErrorCount, 4);
 }
 
-TEST_F(CsvFileInputTest, FailByBadDate) {
-    CsvFileInput badDate("csv_test/badDate.csv", "csv_test/badDate.txt");
-    badDate.open();
+TEST_F(CsvFileInputTest, CollectInvalidInt64) {
+    CsvFileInput invalidInt64("csv_test/badLong.csv", "csv_test/badLong.txt");
+    invalidInt64.open();
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS_CODE(badDate.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidInt64.isEof()) {
+        invalidInt64.read(buf, bufSize);
     }
-    badDate.close();
+    invalidInt64.close();
+
+    auto errorStatus = invalidInt64.getStats();
+    ASSERT_EQ(errorStatus._invalidInt64, 5);
+    ASSERT_EQ(errorStatus._totalErrorCount, 5);
 }
 
-TEST_F(CsvFileInputTest, FailByBadLong) {
-    CsvFileInput badLong("csv_test/badLong.csv", "csv_test/badLong.txt");
-    badLong.open();
+TEST_F(CsvFileInputTest, CollectInvalidBoolean) {
+    CsvFileInput invalidBoolean("csv_test/badBoolean.csv", "csv_test/badBoolean.txt");
+    invalidBoolean.open();
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 5; i++) {
-        ASSERT_THROWS_CODE(badLong.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidBoolean.isEof()) {
+        invalidBoolean.read(buf, bufSize);
     }
-    badLong.close();
+    invalidBoolean.close();
+
+    auto errorStatus = invalidBoolean.getStats();
+    ASSERT_EQ(errorStatus._invalidBoolean, 11);
+    ASSERT_EQ(errorStatus._totalErrorCount, 11);
 }
 
-TEST_F(CsvFileInputTest, FailByBadBoolean) {
-    CsvFileInput badBoolean("csv_test/badBoolean.csv", "csv_test/badBoolean.txt");
-    badBoolean.open();
+TEST_F(CsvFileInputTest, CollectInvalidDouble) {
+    CsvFileInput invalidDouble("csv_test/badDecimal.csv", "csv_test/badDecimal.txt");
+    invalidDouble.open();
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 11; i++) {
-        ASSERT_THROWS_CODE(badBoolean.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidDouble.isEof()) {
+        invalidDouble.read(buf, bufSize);
     }
-    badBoolean.close();
+    invalidDouble.close();
+
+    auto errorStatus = invalidDouble.getStats();
+    ASSERT_EQ(errorStatus._invalidDouble, 4);
+    ASSERT_EQ(errorStatus._totalErrorCount, 4);
 }
 
-TEST_F(CsvFileInputTest, FailByBadDecimal) {
-    CsvFileInput badDecimal("csv_test/badDecimal.csv", "csv_test/badDecimal.txt");
-    badDecimal.open();
+TEST_F(CsvFileInputTest, CollectOutOfRange) {
+    CsvFileInput int32OutOfRange("csv_test/intOutOfRange.csv", "csv_test/intOutOfRange.txt");
+    int32OutOfRange.open();
     int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS_CODE(badDecimal.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!int32OutOfRange.isEof()) {
+        int32OutOfRange.read(buf, bufSize);
     }
-    badDecimal.close();
-}
+    int32OutOfRange.close();
 
-TEST_F(CsvFileInputTest, FailByOutOfRange) {
-    CsvFileInput intOverflow("csv_test/intOutOfRange.csv", "csv_test/intOutOfRange.txt");
-    intOverflow.open();
-    int bufSize = 100;
-    char buf[bufSize];
+    auto errorStatus = int32OutOfRange.getStats();
+    ASSERT_EQ(errorStatus._outOfRange, 6);
+    ASSERT_EQ(errorStatus._totalErrorCount, 6);
 
-    for (int i = 0; i < 6; i++) {
-        ASSERT_THROWS_CODE(intOverflow.read(buf, bufSize), DBException, ErrorCodes::Overflow);
+    CsvFileInput int64OutOfRange("csv_test/longOutOfRange.csv", "csv_test/longOutOfRange.txt");
+    int64OutOfRange.open();
+
+    while (!int64OutOfRange.isEof()) {
+        int64OutOfRange.read(buf, bufSize);
     }
-    intOverflow.close();
+    int64OutOfRange.close();
 
-    CsvFileInput longOverflow("csv_test/longOutOfRange.csv", "csv_test/longOutOfRange.txt");
-    longOverflow.open();
-
-    for (int i = 0; i < 8; i++) {
-        ASSERT_THROWS_CODE(longOverflow.read(buf, bufSize), DBException, ErrorCodes::Overflow);
-    }
-    longOverflow.close();
-}
-
-TEST_F(CsvFileInputTest, BufferTooSmall) {
-    // Read should throw exception when buffer size is too small.
-    CsvFileInput input("csv_test/bufTooSmall.csv", "csv_test/bufTooSmall.txt");
-    input.open();
-
-    int bufSize = 5;
-    char buf[bufSize];
-
-    for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS_CODE(input.read(buf, bufSize), DBException, 200000402);
-    }
-
-    input.close();
+    auto errorStatus2 = int64OutOfRange.getStats();
+    ASSERT_EQ(errorStatus2._outOfRange, 8);
+    ASSERT_EQ(errorStatus2._totalErrorCount, 8);
 }
 
 TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
@@ -548,6 +567,185 @@ TEST_F(CsvFileInputTest, FailByBadMetadata) {
 
     CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
     ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
+}
+
+TEST_F(CsvFileInputTest, ErrorCount) {
+    CsvFileInput input("csv_test/errorCount.csv", "csv_test/errorCount.txt");
+    input.open();
+
+    std::vector expected = {
+
+        fromjson(R"(
+{
+    kString: "string",
+    number: null,
+    distant: null,
+    quadruple: null,
+    RightOrWrong: null,
+    identifier: null, 
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "holyMoly",
+    number: 34,
+    distant: 1234567890,
+    quadruple: 35.23,
+    RightOrWrong: true,
+    identifier: ObjectId("123456789012345678901234"), 
+    signOn: {$date: "2024-04-12T13:36:37.100-06:00"}
+})"),
+        fromjson(R"(
+{
+    kString: "Christopher Columbus",
+    number: 48,
+    distant: 12345678901,
+    quadruple: 48.12,
+    RightOrWrong: null,
+    identifier: null,
+    signOn: {$date: "2024-04-11T13:34:34.343Z"}
+})"),
+        fromjson(R"(
+{
+    kString: "Backpack",
+    number: 55,
+    distant: 33,
+    quadruple: 45.0,
+    RightOrWrong: null,
+    identifier: null,
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "Cannot",
+    number: null,
+    distant: null,
+    quadruple: 33.4,
+    RightOrWrong: true,
+    identifier: ObjectId("123456789123456789abcdef"),
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "smoking Hot",
+    number: 34,
+    distant: 12345678901,
+    quadruple: null,
+    RightOrWrong: null,
+    identifier: null,
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: null,
+    number: null,
+    distant: null,
+    quadruple: 90.09,
+    RightOrWrong: false,
+    identifier: null,
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "Really Really Really Really Really Long String I mean Really Really Long",
+    number: 3,
+    distant: 45,
+    quadruple: 1.2,
+    RightOrWrong: false,
+    identifier: ObjectId("884cdc3ef43ff10ca56e23fd"),
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "Strong and Sound",
+    number: 23,
+    distant: 9000000000,
+    quadruple: 1345.232,
+    RightOrWrong: true
+})")};
+
+    int bufSize = 200;
+    char buf[bufSize];
+    for (const BSONObj& expect : expected) {
+        input.read(buf, bufSize);
+        ASSERT_BSONOBJ_EQ(BSONObj(buf), expect);
+    }
+
+    auto errorStats = input.getStats();
+    ASSERT_EQ(errorStats._incompleteConversionToNumeric, 4);
+    ASSERT_EQ(errorStats._invalidInt32, 1);
+    ASSERT_EQ(errorStats._invalidInt64, 1);
+    ASSERT_EQ(errorStats._invalidDouble, 2);
+    ASSERT_EQ(errorStats._outOfRange, 4);
+    ASSERT_EQ(errorStats._invalidDate, 6);
+    ASSERT_EQ(errorStats._invalidOid, 5);
+    ASSERT_EQ(errorStats._invalidBoolean, 4);
+    ASSERT_EQ(errorStats._metadataAndDataDifferentLength, 1);
+    ASSERT_EQ(errorStats._totalErrorCount, 28);
+
+    input.close();
+}
+
+TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
+    ErrorCount errorStats1;
+    errorStats1._incompleteConversionToNumeric = 4;
+    errorStats1._invalidInt32 = 1;
+    errorStats1._invalidInt64 = 1;
+    errorStats1._invalidDouble = 2;
+    errorStats1._outOfRange = 4;
+    errorStats1._invalidDate = 6;
+    errorStats1._invalidOid = 5;
+    errorStats1._invalidBoolean = 4;
+    errorStats1._metadataAndDataDifferentLength = 1;
+    errorStats1._totalErrorCount = 28;
+
+    ErrorCount errorStats2;
+    errorStats2._incompleteConversionToNumeric = 1;
+    errorStats2._invalidInt32 = 1;
+    errorStats2._invalidInt64 = 1;
+    errorStats2._invalidDouble = 1;
+    errorStats2._outOfRange = 1;
+    errorStats2._invalidDate = 1;
+    errorStats2._invalidOid = 1;
+    errorStats2._invalidBoolean = 1;
+    errorStats2._metadataAndDataDifferentLength = 1;
+    errorStats2._totalErrorCount = 9;
+
+    ErrorCount errorStats3;
+    errorStats3._incompleteConversionToNumeric = 1;
+    errorStats3._invalidInt32 = 3;
+    errorStats3._invalidInt64 = 2;
+    errorStats3._invalidDouble = 4;
+    errorStats3._outOfRange = 2;
+    errorStats3._invalidDate = 1;
+    errorStats3._invalidOid = 2;
+    errorStats3._invalidBoolean = 4;
+    errorStats3._metadataAndDataDifferentLength = 3;
+    errorStats3._totalErrorCount = 22;
+
+    auto totalErrorStats = errorStats1 + errorStats2 + errorStats3;
+    ASSERT_EQ(totalErrorStats._incompleteConversionToNumeric, 6);
+    ASSERT_EQ(totalErrorStats._invalidInt32, 5);
+    ASSERT_EQ(totalErrorStats._invalidInt64, 4);
+    ASSERT_EQ(totalErrorStats._invalidDouble, 7);
+    ASSERT_EQ(totalErrorStats._outOfRange, 7);
+    ASSERT_EQ(totalErrorStats._invalidDate, 8);
+    ASSERT_EQ(totalErrorStats._invalidOid, 8);
+    ASSERT_EQ(totalErrorStats._invalidBoolean, 9);
+    ASSERT_EQ(totalErrorStats._metadataAndDataDifferentLength, 5);
+    ASSERT_EQ(totalErrorStats._totalErrorCount, 59);
+
+    errorStats1 += errorStats2 + errorStats3;
+    ASSERT_EQ(errorStats1._incompleteConversionToNumeric, 6);
+    ASSERT_EQ(errorStats1._invalidInt32, 5);
+    ASSERT_EQ(errorStats1._invalidInt64, 4);
+    ASSERT_EQ(errorStats1._invalidDouble, 7);
+    ASSERT_EQ(errorStats1._outOfRange, 7);
+    ASSERT_EQ(errorStats1._invalidDate, 8);
+    ASSERT_EQ(errorStats1._invalidOid, 8);
+    ASSERT_EQ(errorStats1._invalidBoolean, 9);
+    ASSERT_EQ(errorStats1._metadataAndDataDifferentLength, 5);
+    ASSERT_EQ(errorStats1._totalErrorCount, 59);
 }
 
 }  // namespace mongo

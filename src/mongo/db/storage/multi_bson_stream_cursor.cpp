@@ -211,9 +211,29 @@ boost::optional<Record> MultiBsonStreamCursor::next() {
         }
         ++_streamIdx;
         if (_streamIdx < _numStreams) {
+            _errorStats += _streamReader->getStats();
             _streamReader = getInputStream();
         }
     }
+    _errorStats += _streamReader->getStats();
+    _streamReader = nullptr;
     return boost::none;
+}
+
+boost::optional<BSONObj> MultiBsonStreamCursor::getStats() const {
+    auto curErrorStats = _streamReader ? _errorStats + _streamReader->getStats() : _errorStats;
+
+    BSONObjBuilder builder;
+    builder.append("incompleteConversionToNumeric", curErrorStats._incompleteConversionToNumeric);
+    builder.append("invalidInt32", curErrorStats._invalidInt32);
+    builder.append("invalidInt64", curErrorStats._invalidInt64);
+    builder.append("invalidDouble", curErrorStats._invalidDouble);
+    builder.append("outOfRange", curErrorStats._outOfRange);
+    builder.append("invalidDate", curErrorStats._invalidDate);
+    builder.append("invalidOid", curErrorStats._invalidOid);
+    builder.append("invalidBoolean", curErrorStats._invalidBoolean);
+    builder.append("metadataAndDataDifferentLength", curErrorStats._metadataAndDataDifferentLength);
+    builder.append("totalErrorCount", curErrorStats._totalErrorCount);
+    return builder.done().getOwned();
 }
 }  // namespace mongo

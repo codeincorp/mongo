@@ -299,6 +299,11 @@ void statsToBSON(const PlanStageStats& stats,
         }
         if (verbosity >= ExplainOptions::Verbosity::kExecStats) {
             bob->appendNumber("docsExamined", static_cast<long long>(spec->docsTested));
+            if (spec->_recordStoreStats) {
+                bob->appendObject("recordStoreStats",
+                                  spec->_recordStoreStats->objdata(),
+                                  spec->_recordStoreStats->objsize());
+            }
         }
     } else if (STAGE_COUNT == stats.stageType) {
         CountStats* spec = static_cast<CountStats*>(stats.specific.get());

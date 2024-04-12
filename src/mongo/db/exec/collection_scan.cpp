@@ -608,11 +608,15 @@ unique_ptr<PlanStageStats> CollectionScan::getStats() {
     }
 
     unique_ptr<PlanStageStats> ret = std::make_unique<PlanStageStats>(_commonStats, STAGE_COLLSCAN);
+    getSpecificStats();
     ret->specific = std::make_unique<CollectionScanStats>(_specificStats);
     return ret;
 }
 
 const SpecificStats* CollectionScan::getSpecificStats() const {
+    if (_cursor) {
+        _specificStats._recordStoreStats = _cursor->getStats();
+    }
     return &_specificStats;
 }
 
