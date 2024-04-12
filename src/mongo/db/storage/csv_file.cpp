@@ -37,6 +37,7 @@
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/oid.h"
 #include "mongo/db/query/query_knobs_gen.h"
+#include "mongo/db/storage/default_path.h"
 #include "mongo/db/storage/io_error_message.h"
 #include "mongo/logv2/log.h"
 #include "mongo/util/assert_util.h"
@@ -47,11 +48,12 @@ namespace mongo {
 
 using namespace fmt::literals;
 
-CsvFileInput::CsvFileInput(const std::string& fileRelativePath, const std::string& metaFileRelative)
-    : _fileAbsolutePath((externalPipeDir == "" ? kDefaultPipePath : externalPipeDir) +
+CsvFileInput::CsvFileInput(const std::string& fileRelativePath,
+                           const std::string& metadataRelativePath)
+    : _fileAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
                         fileRelativePath),
-      _metadataAbsolutePath((externalPipeDir == "" ? kDefaultPipePath : externalPipeDir) +
-                            metaFileRelative),
+      _metadataAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
+                            metadataRelativePath),
       _ifs() {
     uassert(200000400,
             "File path must not include '..' but {} does"_format(_fileAbsolutePath),

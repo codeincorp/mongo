@@ -43,6 +43,8 @@
 #include "mongo/base/string_data.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/db/catalog/external_data_source_options_gen.h"
+#include "mongo/db/storage/csv_file.h"
+#include "mongo/db/storage/named_pipe.h"
 #include "mongo/db/storage/record_data.h"
 #include "mongo/db/storage/record_store.h"
 #include "mongo/platform/compiler.h"
@@ -165,6 +167,16 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
     return {{RecordId{_nextRecordId++}, std::move(*recordData)}};
 }
 
+namespace {
+std::string getPath(const std::string& url) {
+    auto filePathPos = url.find(kUrlProtocolFile.toString());
+    uassert(
+        ErrorCodes::BadValue, "Invalid file url: {}"_format(url), filePathPos != std::string::npos);
+
+    return url.substr(filePathPos + kUrlProtocolFile.size());
+}
+}  // namespace
+
 /**
  * Returns an input stream corresponding to the current '_streamIdx'.
  *
@@ -172,18 +184,18 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
  */
 std::unique_ptr<InputStream> MultiBsonStreamCursor::getInputStream() {
     auto&& dataSource = _vopts.getDataSources()[_streamIdx];
-    auto url = dataSource.getUrl().toString();
-    auto filePathPos = url.find(kUrlProtocolFile.toString());
-    tassert(
-        ErrorCodes::BadValue, "Invalid file url: {}"_format(url), filePathPos != std::string::npos);
 
-    auto filePathStr = url.substr(filePathPos + kUrlProtocolFile.size());
-
+    auto filePathStr = getPath(dataSource.getUrl().toString());
     if (dataSource.getStorageType() == StorageTypeEnum::pipe &&
         dataSource.getFileType() == FileTypeEnum::bson) {
         return std::make_unique<InputStreamImpl<NamedPipeInput>>(filePathStr);
+    } else if (dataSource.getStorageType() == StorageTypeEnum::file &&
+               dataSource.getFileType() == FileTypeEnum::csv) {
+        uassert(200000600, "Metadata URL is required for CSV file", _vopts.getMetadataUrl());
+        auto metadataPath = getPath(_vopts.getMetadataUrl()->toString());
+        return std::make_unique<InputStreamImpl<CsvFileInput>>(filePathStr, metadataPath);
     } else {
-        uasserted(200000600, "Support only BSON data over a named pipe");
+        uasserted(200000600, "Support only pipe/bson or file/csv");
     }
 }
 

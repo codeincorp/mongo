@@ -43,7 +43,6 @@
 #include "mongo/db/operation_context.h"
 #include "mongo/db/record_id.h"
 #include "mongo/db/storage/input_stream.h"
-#include "mongo/db/storage/named_pipe.h"
 #include "mongo/db/storage/record_store.h"
 #include "mongo/util/assert_util.h"
 
