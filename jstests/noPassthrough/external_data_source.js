@@ -15,7 +15,7 @@ let db = conn.getDB(jsTestName());
 
 const kUrlProtocolFile = "file://";
 const hostInfo = assert.commandWorked(db.hostInfo());
-const kDefaultPipePath = (() => {
+const kDefaultFilePath = (() => {
     return hostInfo.os.type == "Windows" ? "//./pipe/" : "/tmp/";
 })();
 
@@ -490,22 +490,22 @@ function testSimpleAggregationsOverExternalDataSource(pipeDir) {
 }
 
 jsTestLog("Testing successful named pipe test cases");
-testSimpleAggregationsOverExternalDataSource(kDefaultPipePath);
+testSimpleAggregationsOverExternalDataSource(kDefaultFilePath);
 
 MongoRunner.stopMongod(conn);
 
-// The 'externalPipeDir' is effective only on POSIX-like system.
+// The 'externalFileDir' is effective only on POSIX-like system.
 if (hostInfo.os.type != "Windows") {
-    // Verfies that 'externalPipeDir' server parameter works with the same test cases.
-    (function testExternalPipeDirWorks() {
-        jsTestLog("Testing testExternalPipeDirWorks()");
+    // Verfies that 'externalFileDir' server parameter works with the same test cases.
+    (function testExternalFileDirWorks() {
+        jsTestLog("Testing testExternalFileDirWorks()");
 
         const pipeDir = MongoRunner.dataDir + "/tmp/";
         assert(mkdir(pipeDir).created, `Failed to create ${pipeDir}`);
 
-        jsTestLog(`Testing named pipe test cases with externalPipeDir=${pipeDir}`);
+        jsTestLog(`Testing named pipe test cases with externalFileDir=${pipeDir}`);
         conn = MongoRunner.runMongod(
-            {setParameter: {enableComputeMode: true, externalPipeDir: pipeDir}});
+            {setParameter: {enableComputeMode: true, externalFileDir: pipeDir}});
         db = conn.getDB(jsTestName());
 
         testSimpleAggregationsOverExternalDataSource(pipeDir);
@@ -513,18 +513,18 @@ if (hostInfo.os.type != "Windows") {
         MongoRunner.stopMongod(conn);
     })();
 
-    // Verifies that 'externalPipeDir' with '..' is rejected.
-    (function testInvalidExternalPipeDirRejected() {
-        jsTestLog("Testing testInvalidExternalPipeDirRejected()");
+    // Verifies that 'externalFileDir' with '..' is rejected.
+    (function testInvalidExternalFileDirRejected() {
+        jsTestLog("Testing testInvalidExternalFileDirRejected()");
 
         const pipeDir = MongoRunner.dataDir + "/tmp/abc/../def/";
         assert(mkdir(pipeDir).created, `Failed to create ${pipeDir}`);
 
-        jsTestLog(`Testing externalPipeDir=${pipeDir}`);
+        jsTestLog(`Testing externalFileDir=${pipeDir}`);
         const pid = MongoRunner
                         .runMongod({
                             waitForConnect: false,
-                            setParameter: {enableComputeMode: true, externalPipeDir: pipeDir}
+                            setParameter: {enableComputeMode: true, externalFileDir: pipeDir}
                         })
                         .pid;
         assert.soon(() => {
