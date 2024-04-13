@@ -43,7 +43,6 @@
 #include "mongo/db/operation_context.h"
 #include "mongo/db/record_id.h"
 #include "mongo/db/storage/input_stream.h"
-#include "mongo/db/storage/named_pipe.h"
 #include "mongo/db/storage/record_store.h"
 #include "mongo/util/assert_util.h"
 
@@ -54,7 +53,7 @@ public:
         : _numStreams(vopts.getDataSources().size()), _vopts(vopts) {
         using namespace fmt::literals;
         tassert(6968310, "_numStreams {} <= 0"_format(_numStreams), _numStreams > 0);
-        _streamReader = getInputStream(_vopts.getDataSources()[_streamIdx].getUrl().toString());
+        _streamReader = getInputStream();
     }
 
     boost::optional<Record> next() override;
@@ -85,7 +84,7 @@ public:
 private:
     void expandBuffer(int32_t bsonSize);
     boost::optional<Record> nextFromCurrentStream();
-    static std::unique_ptr<InputStream<NamedPipeInput>> getInputStream(const std::string& url);
+    std::unique_ptr<InputStream> getInputStream();
 
     // The size in bytes of a BSON object's "size" prefix.
     static constexpr int kSizeSize = static_cast<int>(sizeof(int32_t));
@@ -115,7 +114,7 @@ private:
     int _streamIdx = 0;         // index in' _vopts' of stream being consumed in '_streamReader'
 
     // Reader for the current stream.
-    std::unique_ptr<InputStream<NamedPipeInput>> _streamReader = nullptr;
+    std::unique_ptr<InputStream> _streamReader = nullptr;
 
     const VirtualCollectionOptions& _vopts;  // metadata containing the pipe URLs
 };

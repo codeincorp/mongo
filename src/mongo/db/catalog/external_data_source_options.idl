@@ -40,11 +40,13 @@ enums:
         type: string
         values:
             pipe: pipe
+            file: file
     FileType:
         description: "File type for external data source."
         type: string
         values:
             bson: bson
+            csv: csv
 
 structs:
     ExternalDataSourceInfo:

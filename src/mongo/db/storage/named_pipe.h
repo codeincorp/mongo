@@ -36,24 +36,16 @@
 #endif
 #include <string>
 
-#include "mongo/db/query/query_knobs_gen.h"
+#include "mongo/db/storage/default_path.h"
 #include "mongo/db/storage/input_object.h"
 
 namespace mongo {
-#ifndef _WIN32
-static constexpr auto kDefaultPipePath = "/tmp/"_sd;
-#else
-// "//./pipe/" is the required path start of all named pipes on Windows, where "//." is the
-// abbreviation for the local server name and "/pipe" is a literal. (These also work with
-// Windows-native backslashes instead of forward slashes.
-static constexpr auto kDefaultPipePath = "//./pipe/"_sd;
-#endif
 
 class NamedPipeOutput {
 public:
-    // Searches the named pipe in 'kDefaultPipePath' + 'pipeRelativePath'
+    // Searches the named pipe in 'kDefaultFilePath' + 'pipeRelativePath'
     NamedPipeOutput(const std::string& pipeRelativePath)
-        : NamedPipeOutput(kDefaultPipePath.toString(), pipeRelativePath) {}
+        : NamedPipeOutput(kDefaultFilePath.toString(), pipeRelativePath) {}
 
     // Searches the named pipe in 'pipeDir' + 'pipeRelativePath' in POSIX system'
     NamedPipeOutput(const std::string& pipeDir,

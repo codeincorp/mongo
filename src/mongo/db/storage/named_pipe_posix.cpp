@@ -130,7 +130,7 @@ void NamedPipeOutput::close() {
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 NamedPipeInput::NamedPipeInput(const std::string& pipeRelativePath)
-    : _pipeAbsolutePath((externalPipeDir == "" ? kDefaultPipePath : externalPipeDir) +
+    : _pipeAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
                         pipeRelativePath),
       _ifs() {
     uassert(7001100,

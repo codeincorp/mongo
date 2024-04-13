@@ -38,33 +38,8 @@
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 namespace mongo {
-/**
- * This template class provides a standardized input facility over StreamableInput or SeekableInput.
- *
- * This class inherits publicly from 'InputT' and expose all methods except InputT::read() so that
- * InputStream::readBytes() is exposed for reading data instead of InputT::read(). If 'InputT' is
- * seekable, seek() method is still exposed and the client can seek to a specific position before
- * reading data.
- *
- * Type requirement: 'InputT' must meet the StreamableInput or SeekableInput concept, e.g. the
- * NamedPipeInput class, which is the first class used as InputStream's parent.
- */
-template <typename InputT>
-class InputStream : public InputT {
+class InputStream {
 public:
-    /**
-     * Constructs an InputStream object wrapped around a low-level class (e.g. NamedPipeInput).
-     */
-    template <typename... ArgT>
-    InputStream(ArgT&&... args) : InputT(std::forward<ArgT>(args)...) {
-        using namespace fmt::literals;
-        InputT::open();
-        uassert(ErrorCodes::FileNotOpen,
-                "Named pipe still not open for read after exhausting retries. Error: {}"_format(
-                    getErrorMessage("open"_sd, InputT::getAbsolutePath())),
-                InputT::isOpen());
-    }
-
     /**
      * Reads 'count' bytes from the stream into the caller-provided 'buffer'. Caller is responsible
      * for ensuring 'buffer' size is >= 'count' bytes. The only reasons it should return fewer bytes
@@ -80,7 +55,41 @@ public:
      *
      * May throw an exception when count < 0.
      */
-    int readBytes(int count, char* buffer) {
+    virtual int readBytes(int count, char* buffer) = 0;
+
+    virtual ~InputStream() {}
+};
+
+/**
+ * This template class provides a standardized input facility over StreamableInput or SeekableInput.
+ *
+ * This class inherits publicly from 'InputT' and expose all methods except InputT::read() so that
+ * InputStream::readBytes() is exposed for reading data instead of InputT::read(). If 'InputT' is
+ * seekable, seek() method is still exposed and the client can seek to a specific position before
+ * reading data.
+ *
+ * Type requirement: 'InputT' must meet the StreamableInput or SeekableInput concept, e.g. the
+ * NamedPipeInput class, which is the first class used as InputStream's parent.
+ */
+template <typename InputT>
+class InputStreamImpl : public InputT, public InputStream {
+public:
+    /**
+     * Constructs an InputStream object wrapped around a low-level class (e.g. NamedPipeInput).
+     */
+    template <typename... ArgT>
+    InputStreamImpl(ArgT&&... args) : InputT(std::forward<ArgT>(args)...) {
+        using namespace fmt::literals;
+        InputT::open();
+        uassert(ErrorCodes::FileNotOpen,
+                "Named pipe still not open for read after exhausting retries. Error: {}"_format(
+                    getErrorMessage("open"_sd, InputT::getAbsolutePath())),
+                InputT::isOpen());
+    }
+
+    ~InputStreamImpl() override = default;
+
+    int readBytes(int count, char* buffer) override {
         tassert(7005000, "Number of bytes to read must be greater than 0", count > 0);
 
         int nReadTotal = 0;

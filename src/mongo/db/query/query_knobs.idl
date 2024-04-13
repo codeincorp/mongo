@@ -1274,11 +1274,11 @@ server_parameters:
     default: false
     redact: false
 
-  externalPipeDir:
-    description: "Absolute path to the directory where external named pipes can be found. The
-      trailing '/' must be included."
+  externalFileDir:
+    description: "Absolute path to the directory where external files can be found. The trailing '/'
+      must be included."
     set_at: [ startup ]
-    cpp_varname: "externalPipeDir"
+    cpp_varname: "externalFileDir"
     cpp_vartype: std::string
     redact: false
 
