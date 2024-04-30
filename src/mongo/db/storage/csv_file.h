@@ -51,18 +51,15 @@ using Metadata = std::vector<FieldInfo>;
 class CsvFileInput : public StreamableInput {
 public:
     CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
-    CsvFileInput(const std::string& fileRelativePath,
-                 const std::string& metadataRelativePath,
-                 const bool& strict,
-                 const size_t& threshold);
     ~CsvFileInput() override;
     const std::string& getAbsolutePath() const override {
         return _fileAbsolutePath;
     }
 
-    // Returns ErrorCount object that summarizes the errors that occured during reading in the csv
-    // file.
-    mongo::ErrorCount getStats() const;
+    // Sometimes CsvFileInput can fail to read the data due to discrepancy between metadata and
+    // actual data(Ex: String data at int32 field). GetStats returns ErrorCount object that
+    // summarizes how many times each kind of error has occured during the read.
+    ErrorCount getStats() const;
 
     bool isOpen() const override;
     bool isGood() const override;

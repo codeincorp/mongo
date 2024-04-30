@@ -680,10 +680,41 @@ TEST_F(CsvFileInputTest, ErrorCount) {
     ASSERT_EQ(errorStats._invalidDate, 6);
     ASSERT_EQ(errorStats._invalidOid, 5);
     ASSERT_EQ(errorStats._invalidBoolean, 4);
-    ASSERT_EQ(errorStats._metadataAndDataDifferentLength, 1);
+    ASSERT_EQ(errorStats._nonCompliantWithMetadata, 1);
     ASSERT_EQ(errorStats._totalErrorCount, 28);
 
     input.close();
+}
+
+TEST_F(CsvFileInputTest, SpecialNumericCase) {
+    CsvFileInput input("csv_test/specialNumeric.csv", "csv_test/specialNumeric.txt");
+    input.open();
+
+    std::vector expected = {
+
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: -INF })"),
+        fromjson(R"({ stodSpecial: -INF })"),
+        fromjson(R"({ stodSpecial: 4.5123e+10 })"),
+        fromjson(R"({ stodSpecial: 6.634 })"),
+        fromjson(R"({ stodSpecial: 6711340000000 })"),
+        fromjson(R"({ stodSpecial: 9.024434 })"),
+        fromjson(R"({ stodSpecial: nan })")};
+
+    int bufSize = 100;
+    char buf[bufSize];
+
+    for (int i = 0; i < 14; i++) {
+        input.read(buf, bufSize);
+        ASSERT_BSONOBJ_EQ(BSONObj(buf), expected[i]);
+    }
 }
 
 TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
@@ -696,7 +727,7 @@ TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
     errorStats1._invalidDate = 6;
     errorStats1._invalidOid = 5;
     errorStats1._invalidBoolean = 4;
-    errorStats1._metadataAndDataDifferentLength = 1;
+    errorStats1._nonCompliantWithMetadata = 1;
     errorStats1._totalErrorCount = 28;
 
     ErrorCount errorStats2;
@@ -708,7 +739,7 @@ TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
     errorStats2._invalidDate = 1;
     errorStats2._invalidOid = 1;
     errorStats2._invalidBoolean = 1;
-    errorStats2._metadataAndDataDifferentLength = 1;
+    errorStats2._nonCompliantWithMetadata = 1;
     errorStats2._totalErrorCount = 9;
 
     ErrorCount errorStats3;
@@ -720,7 +751,7 @@ TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
     errorStats3._invalidDate = 1;
     errorStats3._invalidOid = 2;
     errorStats3._invalidBoolean = 4;
-    errorStats3._metadataAndDataDifferentLength = 3;
+    errorStats3._nonCompliantWithMetadata = 3;
     errorStats3._totalErrorCount = 22;
 
     auto totalErrorStats = errorStats1 + errorStats2 + errorStats3;
@@ -732,7 +763,7 @@ TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
     ASSERT_EQ(totalErrorStats._invalidDate, 8);
     ASSERT_EQ(totalErrorStats._invalidOid, 8);
     ASSERT_EQ(totalErrorStats._invalidBoolean, 9);
-    ASSERT_EQ(totalErrorStats._metadataAndDataDifferentLength, 5);
+    ASSERT_EQ(totalErrorStats._nonCompliantWithMetadata, 5);
     ASSERT_EQ(totalErrorStats._totalErrorCount, 59);
 
     errorStats1 += errorStats2 + errorStats3;
@@ -744,8 +775,9 @@ TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
     ASSERT_EQ(errorStats1._invalidDate, 8);
     ASSERT_EQ(errorStats1._invalidOid, 8);
     ASSERT_EQ(errorStats1._invalidBoolean, 9);
-    ASSERT_EQ(errorStats1._metadataAndDataDifferentLength, 5);
+    ASSERT_EQ(errorStats1._nonCompliantWithMetadata, 5);
     ASSERT_EQ(errorStats1._totalErrorCount, 59);
+    ASSERT_NE(&totalErrorStats, &errorStats1);
 }
 
 }  // namespace mongo

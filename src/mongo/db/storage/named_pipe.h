@@ -81,9 +81,8 @@ public:
     bool isFailed() const override;
     bool isEof() const override;
 
-    // without this line, ninja doesn't complain about NamedPipeInput not having this function due
-    // to input_stream.h line 95
-    mongo::ErrorCount getStats() const {
+    // Nothing to return
+    ErrorCount getStats() const {
         return ErrorCount();
     }
 

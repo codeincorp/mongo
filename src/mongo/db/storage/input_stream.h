@@ -58,7 +58,10 @@ public:
      */
     virtual int readBytes(int count, char* buffer) = 0;
 
-    virtual mongo::ErrorCount getStats() const = 0;
+    /**
+     * Collect occurrences of errors that occurred while reading the external inputStream
+     */
+    virtual ErrorCount getStats() const = 0;
 
     virtual ~InputStream() {}
 };
@@ -92,7 +95,7 @@ public:
 
     ~InputStreamImpl() override = default;
 
-    mongo::ErrorCount getStats() const override {
+    ErrorCount getStats() const override {
         return InputT::getStats();
     }
 

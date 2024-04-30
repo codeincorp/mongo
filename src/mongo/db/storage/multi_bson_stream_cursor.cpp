@@ -232,7 +232,7 @@ boost::optional<BSONObj> MultiBsonStreamCursor::getStats() const {
     builder.append("invalidDate", curErrorStats._invalidDate);
     builder.append("invalidOid", curErrorStats._invalidOid);
     builder.append("invalidBoolean", curErrorStats._invalidBoolean);
-    builder.append("metadataAndDataDifferentLength", curErrorStats._metadataAndDataDifferentLength);
+    builder.append("metadataAndDataDifferentLength", curErrorStats._nonCompliantWithMetadata);
     builder.append("totalErrorCount", curErrorStats._totalErrorCount);
     return builder.done().getOwned();
 }

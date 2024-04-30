@@ -54,8 +54,7 @@ CsvFileInput::CsvFileInput(const std::string& fileRelativePath,
                         fileRelativePath),
       _metadataAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
                             metadataRelativePath),
-      _ifs(),
-      _errorCount({}) {
+      _ifs() {
     uassert(200000400,
             "File path must not include '..' but {} does"_format(_fileAbsolutePath),
             _fileAbsolutePath.find("..") == std::string::npos);
@@ -181,63 +180,64 @@ void CsvFileInput::appendTo<CsvFieldType::kInt32>(BSONObjBuilder& builder,
     size_t idx;
     try {
         converted = stoi(data, &idx);
-        builder.append(fieldName, converted);
-    } catch (std::invalid_argument e) {
-        _errorCount._invalidInt32++;
-        _errorCount._totalErrorCount++;
+    } catch (const std::invalid_argument&) {
+        _errorCount.incInvalidInt32();
         builder.appendNull(fieldName);
         return;
-    } catch (std::out_of_range e) {
-        _errorCount._outOfRange++;
-        _errorCount._totalErrorCount++;
+    } catch (const std::out_of_range&) {
+        _errorCount.incOutOfRange();
         builder.appendNull(fieldName);
         return;
     }
 
     if (idx != data.length()) {
-        _errorCount._incompleteConversionToNumeric++;
-        _errorCount._totalErrorCount++;
+        _errorCount.incIncompleteConversionToNumeric();
     }
+    builder.append(fieldName, converted);
 }
 
 template <>
 void CsvFileInput::appendTo<CsvFieldType::kDouble>(BSONObjBuilder& builder,
                                                    const std::string& fieldName,
                                                    const std::string& data) {
+    double converted;
     try {
-        builder.append(fieldName, stod(data));
-    } catch (std::invalid_argument e) {
-        _errorCount._invalidDouble++;
-        _errorCount._totalErrorCount++;
+        converted = stod(data);
+    } catch (const std::invalid_argument&) {
+        _errorCount.incInvalidDouble();
         builder.appendNull(fieldName);
+        return;
+    } catch (const std::out_of_range&) {
+        _errorCount.incOutOfRange();
+        builder.appendNull(fieldName);
+        return;
     }
+
+    builder.append(fieldName, converted);
 }
 
 template <>
 void CsvFileInput::appendTo<CsvFieldType::kInt64>(BSONObjBuilder& builder,
                                                   const std::string& fieldName,
                                                   const std::string& data) {
-    long long int converted;
+    long long converted;
     size_t idx;
     try {
         converted = stoll(data, &idx);
-        builder.append(fieldName, converted);
-    } catch (std::invalid_argument e) {
-        _errorCount._invalidInt64++;
-        _errorCount._totalErrorCount++;
+    } catch (const std::invalid_argument&) {
+        _errorCount.incInvalidInt64();
         builder.appendNull(fieldName);
         return;
-    } catch (std::out_of_range e) {
-        _errorCount._outOfRange++;
-        _errorCount._totalErrorCount++;
+    } catch (const std::out_of_range&) {
+        _errorCount.incOutOfRange();
         builder.appendNull(fieldName);
         return;
     }
 
     if (idx != data.length()) {
-        _errorCount._incompleteConversionToNumeric++;
-        _errorCount._totalErrorCount++;
+        _errorCount.incIncompleteConversionToNumeric();
     }
+    builder.append(fieldName, converted);
 }
 
 template <>
@@ -253,8 +253,7 @@ void CsvFileInput::appendTo<CsvFieldType::kDate>(BSONObjBuilder& builder,
                                                  const std::string& data) {
     auto date = dateFromISOString(data);
     if (!date.isOK()) {
-        _errorCount._invalidDate++;
-        _errorCount._totalErrorCount++;
+        _errorCount.incInvalidDate();
         builder.appendNull(fieldName);
         return;
     }
@@ -275,8 +274,7 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
             mutableData.begin(), mutableData.begin() + kOidTypeStr, mutableData.begin(), ::tolower);
 
         if (mutableData.substr(0, kOidTypeStrPrefix) != "objectid(\"") {
-            _errorCount._invalidOid++;
-            _errorCount._totalErrorCount++;
+            _errorCount.incInvalidOid();
             builder.appendNull(fieldName);
             return;
         }
@@ -287,20 +285,21 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     }
 
     if (mutableData.length() != kLengthOidValue) {
-        _errorCount._invalidOid++;
-        _errorCount._totalErrorCount++;
+        _errorCount.incInvalidOid();
         builder.appendNull(fieldName);
         return;
     }
 
+    mongo::OID id;
     try {
-        mongo::OID id = mongo::OID(mutableData);  // Throws exception if it detects bad OID.
-        builder.append(fieldName, id);
-    } catch (ExceptionFor<ErrorCodes::FailedToParse> e) {
-        _errorCount._invalidOid++;
-        _errorCount._totalErrorCount++;
+        id = mongo::OID(mutableData);  // Throws exception if it detects bad OID.
+    } catch (const ExceptionFor<ErrorCodes::FailedToParse>&) {
+        _errorCount.incInvalidOid();
         builder.appendNull(fieldName);
+        return;
     }
+
+    builder.append(fieldName, id);
 }
 
 template <>
@@ -317,8 +316,7 @@ void CsvFileInput::appendTo<CsvFieldType::kBool>(BSONObjBuilder& builder,
              mutableData == "n" || mutableData == "0")
         val = false;
     else {
-        _errorCount._invalidBoolean++;
-        _errorCount._totalErrorCount++;
+        _errorCount.incInvalidBoolean();
         builder.appendNull(fieldName);
         return;
     }
@@ -334,16 +332,15 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
         return boost::none;
     }
 
-    BSONObjBuilder builder;
     auto data = parseLine(record);
 
-    // If data and metadata have different number of fields,just process as many fields as
-    // possible.
+    // If data and metadata have different number of fields, process as many fields as possible.
     if (data.size() != _metadata.size()) {
-        _errorCount._metadataAndDataDifferentLength++;
+        _errorCount._nonCompliantWithMetadata++;
         _errorCount._totalErrorCount++;
     }
 
+    BSONObjBuilder builder;
     size_t processableFields = std::min(data.size(), _metadata.size());
     for (size_t i = 0; i < processableFields; ++i) {
         if (data[i] == "") {
@@ -402,7 +399,7 @@ std::vector<std::string> CsvFileInput::parseLine(const std::string& line) {
     return strs;
 }
 
-mongo::ErrorCount CsvFileInput::getStats() const {
+ErrorCount CsvFileInput::getStats() const {
     return _errorCount;
 }
 

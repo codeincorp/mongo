@@ -121,6 +121,6 @@ private:
 
     const VirtualCollectionOptions& _vopts;  // metadata containing the pipe URLs
 
-    mongo::ErrorCount _errorStats = ErrorCount();
+    ErrorCount _errorStats = ErrorCount();
 };
 }  // namespace mongo
