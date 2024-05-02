@@ -32,13 +32,22 @@
 #include <fmt/format.h>
 #include <utility>
 
-#include "mongo/db/storage/error_count.h"
 #include "mongo/db/storage/io_error_message.h"
 #include "mongo/logv2/log.h"
 
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 namespace mongo {
+struct InputStreamStats {
+    /**
+     * Sometimes CsvFileInput can fail to read the data due to discrepancy between metadata and
+     * actual data(Ex: String data at int32 field). toBson returns BSONObj that
+     * summarizes how many times each kind of error has occured during the read.
+     */
+    virtual boost::optional<BSONObj> toBson() const = 0;
+    virtual ~InputStreamStats() {}
+};
+
 class InputStream {
 public:
     /**
@@ -57,11 +66,6 @@ public:
      * May throw an exception when count < 0.
      */
     virtual int readBytes(int count, char* buffer) = 0;
-
-    /**
-     * Collect occurrences of errors that occurred while reading the external inputStream
-     */
-    virtual ErrorCount getStats() const = 0;
 
     virtual ~InputStream() {}
 };
@@ -94,10 +98,6 @@ public:
     }
 
     ~InputStreamImpl() override = default;
-
-    ErrorCount getStats() const override {
-        return InputT::getStats();
-    }
 
     int readBytes(int count, char* buffer) override {
         tassert(7005000, "Number of bytes to read must be greater than 0", count > 0);

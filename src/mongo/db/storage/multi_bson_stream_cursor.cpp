@@ -177,6 +177,14 @@ std::string getPath(const std::string& url) {
 }
 }  // namespace
 
+MultiBsonStreamCursor::MultiBsonStreamCursor(const VirtualCollectionOptions& vopts)
+    : _numStreams(vopts.getDataSources().size()), _vopts(vopts) {
+    using namespace fmt::literals;
+    tassert(6968310, "_numStreams {} <= 0"_format(_numStreams), _numStreams > 0);
+    _stats = CsvFileInput::createStats();
+    _streamReader = getInputStream();
+}
+
 /**
  * Returns an input stream corresponding to the current '_streamIdx'.
  *
@@ -193,7 +201,7 @@ std::unique_ptr<InputStream> MultiBsonStreamCursor::getInputStream() {
                dataSource.getFileType() == FileTypeEnum::csv) {
         uassert(200000600, "Metadata URL is required for CSV file", _vopts.getMetadataUrl());
         auto metadataPath = getPath(_vopts.getMetadataUrl()->toString());
-        return std::make_unique<InputStreamImpl<CsvFileInput>>(filePathStr, metadataPath);
+        return std::make_unique<InputStreamImpl<CsvFileInput>>(_stats, filePathStr, metadataPath);
     } else {
         uasserted(200000600, "Support only pipe/bson or file/csv");
     }
@@ -211,29 +219,14 @@ boost::optional<Record> MultiBsonStreamCursor::next() {
         }
         ++_streamIdx;
         if (_streamIdx < _numStreams) {
-            _errorStats += _streamReader->getStats();
             _streamReader = getInputStream();
         }
     }
-    _errorStats += _streamReader->getStats();
-    _streamReader = nullptr;
+
     return boost::none;
 }
 
 boost::optional<BSONObj> MultiBsonStreamCursor::getStats() const {
-    auto curErrorStats = _streamReader ? _errorStats + _streamReader->getStats() : _errorStats;
-
-    BSONObjBuilder builder;
-    builder.append("incompleteConversionToNumeric", curErrorStats._incompleteConversionToNumeric);
-    builder.append("invalidInt32", curErrorStats._invalidInt32);
-    builder.append("invalidInt64", curErrorStats._invalidInt64);
-    builder.append("invalidDouble", curErrorStats._invalidDouble);
-    builder.append("outOfRange", curErrorStats._outOfRange);
-    builder.append("invalidDate", curErrorStats._invalidDate);
-    builder.append("invalidOid", curErrorStats._invalidOid);
-    builder.append("invalidBoolean", curErrorStats._invalidBoolean);
-    builder.append("metadataAndDataDifferentLength", curErrorStats._nonCompliantWithMetadata);
-    builder.append("totalErrorCount", curErrorStats._totalErrorCount);
-    return builder.done().getOwned();
+    return _stats->toBson();
 }
 }  // namespace mongo

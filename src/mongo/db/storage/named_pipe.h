@@ -81,11 +81,6 @@ public:
     bool isFailed() const override;
     bool isEof() const override;
 
-    // Nothing to return
-    ErrorCount getStats() const {
-        return ErrorCount();
-    }
-
 protected:
     void doOpen() override;
     int doRead(char* data, int size) override;

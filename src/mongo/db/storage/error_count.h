@@ -29,10 +29,11 @@
 
 #pragma once
 
+#include "mongo/db/storage/input_stream.h"
 #include <cstdint>
 
 namespace mongo {
-struct ErrorCount {
+struct ErrorCount : public InputStreamStats {
     // Variables to keep track of the count of errors occured during reading csv file.
     int64_t _incompleteConversionToNumeric = 0;
     int64_t _invalidInt32 = 0;
@@ -44,6 +45,21 @@ struct ErrorCount {
     int64_t _invalidBoolean = 0;
     int64_t _nonCompliantWithMetadata = 0;
     int64_t _totalErrorCount = 0;
+
+    boost::optional<BSONObj> toBson() const override {
+        BSONObjBuilder builder;
+        builder.append("incompleteConversionToNumeric", _incompleteConversionToNumeric);
+        builder.append("invalidInt32", _invalidInt32);
+        builder.append("invalidInt64", _invalidInt64);
+        builder.append("invalidDouble", _invalidDouble);
+        builder.append("outOfRange", _outOfRange);
+        builder.append("invalidDate", _invalidDate);
+        builder.append("invalidOid", _invalidOid);
+        builder.append("invalidBoolean", _invalidBoolean);
+        builder.append("metadataAndDataDifferentLength", _nonCompliantWithMetadata);
+        builder.append("totalErrorCount", _totalErrorCount);
+        return builder.done().getOwned();
+    }
 
     ErrorCount operator+(const ErrorCount& other) const {
         ErrorCount ret(*this);

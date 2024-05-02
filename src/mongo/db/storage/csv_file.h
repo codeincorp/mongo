@@ -51,15 +51,17 @@ using Metadata = std::vector<FieldInfo>;
 class CsvFileInput : public StreamableInput {
 public:
     CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
+    CsvFileInput(std::shared_ptr<InputStreamStats> stats,
+                 const std::string& fileRelativePath,
+                 const std::string& metadataRelativePath);
+
     ~CsvFileInput() override;
     const std::string& getAbsolutePath() const override {
         return _fileAbsolutePath;
     }
 
-    // Sometimes CsvFileInput can fail to read the data due to discrepancy between metadata and
-    // actual data(Ex: String data at int32 field). GetStats returns ErrorCount object that
-    // summarizes how many times each kind of error has occured during the read.
-    ErrorCount getStats() const;
+    // Factory function to denote initial ErrorCount with 0 errors.
+    static std::shared_ptr<ErrorCount> createStats();
 
     bool isOpen() const override;
     bool isGood() const override;
@@ -105,7 +107,7 @@ private:
     std::string _metadataAbsolutePath;
     std::ifstream _ifs;
     Metadata _metadata;
-    ErrorCount _errorCount;
+    ErrorCount* _errorStats;
 };
 
 }  // namespace mongo

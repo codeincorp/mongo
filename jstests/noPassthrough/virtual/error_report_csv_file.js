@@ -16,11 +16,11 @@ db.dropDatabase();
 
 const coll = db.ext_csv;
 
-(function test1() {
+(function CollectEachErrorCases() {
     removeFile("/tmp/error_report.csv");
     copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report.csv", "/tmp/error_report.csv");
 
-    jsTestLog("Running Test1");
+    jsTestLog("Running CollectEachErrorCases Test");
     coll.drop();
     db.createCollection("ext_csv", {
         virtual: {
@@ -50,97 +50,36 @@ const coll = db.ext_csv;
               `Expected ${tojson(expectedRecordStoreStats)} but got ${tojson(res)}`);
 })();
 
-(function test2() {
+(function multipleCsvStreams() {
     removeFile("/tmp/error_report2.csv");
     copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report2.csv", "/tmp/error_report2.csv");
+    removeFile("/tmp/error_report3.csv");
+    copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report3.csv", "/tmp/error_report3.csv");
 
-    jsTestLog("Running Test2");
-    coll.drop();
-    db.createCollection("ext_csv", {
-        virtual: {
-            dataSources: [{url: "file://error_report2.csv", storageType: "file", fileType: "csv"}],
-            metadataUrl: "file://error_report.txt"
-        }
-    });
-
-    const expectedRecordStoreStats = {
-        "incompleteConversionToNumeric": NumberLong(1),
-        "invalidInt32": NumberLong(1),
-        "invalidInt64": NumberLong(1),
-        "invalidDouble": NumberLong(1),
-        "outOfRange": NumberLong(1),
-        "invalidDate": NumberLong(1),
-        "invalidOid": NumberLong(1),
-        "invalidBoolean": NumberLong(1),
-        "metadataAndDataDifferentLength": NumberLong(1),
-        "totalErrorCount": NumberLong(9)
-    };
-    const res = coll.explain("executionStats").find().finish();
-    const recordStoreStats = getPlanStage(res.executionStats.executionStages, "COLLSCAN");
-    assert.neq(null, recordStoreStats);
-    assert.eq(expectedRecordStoreStats,
-              recordStoreStats.recordStoreStats,
-              `Expected ${tojson(expectedRecordStoreStats)} but got ${tojson(res)}`);
-})();
-
-(function test3() {
-    jsTestLog("Running Test3");
+    jsTestLog("Running MultipleCsvStreams Test");
     coll.drop();
     db.createCollection("ext_csv", {
         virtual: {
             dataSources: [
                 {url: "file://error_report.csv", storageType: "file", fileType: "csv"},
-                {url: "file://error_report2.csv", storageType: "file", fileType: "csv"}
+                {url: "file://error_report2.csv", storageType: "file", fileType: "csv"},
+                {url: "file://error_report3.csv", storageType: "file", fileType: "csv"}
             ],
             metadataUrl: "file://error_report.txt"
         }
     });
 
     const expectedRecordStoreStats = {
-        "incompleteConversionToNumeric": NumberLong(5),
-        "invalidInt32": NumberLong(2),
-        "invalidInt64": NumberLong(2),
-        "invalidDouble": NumberLong(3),
-        "outOfRange": NumberLong(5),
-        "invalidDate": NumberLong(7),
-        "invalidOid": NumberLong(6),
-        "invalidBoolean": NumberLong(5),
-        "metadataAndDataDifferentLength": NumberLong(2),
-        "totalErrorCount": NumberLong(37)
-    };
-
-    const res = coll.explain("executionStats").find().finish();
-    const recordStoreStats = getPlanStage(res.executionStats.executionStages, "COLLSCAN");
-    assert.neq(null, recordStoreStats);
-    assert.eq(expectedRecordStoreStats,
-              recordStoreStats.recordStoreStats,
-              `Expected ${tojson(expectedRecordStoreStats)} but got ${tojson(res)}`);
-})();
-
-(function test4() {
-    removeFile("/tmp/error_report3.csv");
-    copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report3.csv", "/tmp/error_report3.csv");
-
-    jsTestLog("Running allErrorTest");
-    coll.drop();
-    db.createCollection("ext_csv", {
-        virtual: {
-            dataSources: [{url: "file://error_report3.csv", storageType: "file", fileType: "csv"}],
-            metadataUrl: "file://error_report.txt"
-        }
-    });
-
-    const expectedRecordStoreStats = {
-        "incompleteConversionToNumeric": NumberLong(1),
-        "invalidInt32": NumberLong(3),
-        "invalidInt64": NumberLong(2),
-        "invalidDouble": NumberLong(4),
-        "outOfRange": NumberLong(2),
-        "invalidDate": NumberLong(1),
-        "invalidOid": NumberLong(2),
-        "invalidBoolean": NumberLong(4),
-        "metadataAndDataDifferentLength": NumberLong(3),
-        "totalErrorCount": NumberLong(22)
+        "incompleteConversionToNumeric": NumberLong(6),
+        "invalidInt32": NumberLong(5),
+        "invalidInt64": NumberLong(4),
+        "invalidDouble": NumberLong(7),
+        "outOfRange": NumberLong(7),
+        "invalidDate": NumberLong(8),
+        "invalidOid": NumberLong(8),
+        "invalidBoolean": NumberLong(9),
+        "metadataAndDataDifferentLength": NumberLong(5),
+        "totalErrorCount": NumberLong(59)
     };
 
     const res = coll.explain("executionStats").find().finish();
