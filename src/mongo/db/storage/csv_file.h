@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 
+#include "mongo/db/storage/error_count.h"
 #include "mongo/db/storage/input_object.h"
 
 namespace mongo {
@@ -49,11 +50,18 @@ using Metadata = std::vector<FieldInfo>;
 
 class CsvFileInput : public StreamableInput {
 public:
-    CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
+    CsvFileInput(std::shared_ptr<InputStreamStats> stats,
+                 const std::string& fileRelativePath,
+                 const std::string& metadataRelativePath);
+
     ~CsvFileInput() override;
     const std::string& getAbsolutePath() const override {
         return _fileAbsolutePath;
     }
+
+    // Factory function to create an initial ErrorCount with 0 errors.
+    static std::shared_ptr<ErrorCount> createStats();
+
     bool isOpen() const override;
     bool isGood() const override;
     bool isFailed() const override;
@@ -87,14 +95,18 @@ private:
      */
     std::vector<std::string> parseLine(const std::string& line);
 
+    template <CsvFieldType T>
+    void appendTo(BSONObjBuilder& builder, const std::string& fieldName, const std::string& data);
+
     // Reads each line from the CSV file and converts it into a BSONObj, being compliant with the
-    // metadata. it will return boost::none if there is no more line to read in the csv file
+    // metadata. it will return boost::none if there is no more line to read in the csv file.
     boost::optional<BSONObj> readBsonObj();
 
     std::string _fileAbsolutePath;
     std::string _metadataAbsolutePath;
     std::ifstream _ifs;
     Metadata _metadata;
+    ErrorCount* _errorStats;
 };
 
 }  // namespace mongo
