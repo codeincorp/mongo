@@ -37,7 +37,6 @@
 #include <string>
 
 #include "mongo/db/storage/default_path.h"
-#include "mongo/db/storage/error_count.h"
 #include "mongo/db/storage/input_object.h"
 
 namespace mongo {

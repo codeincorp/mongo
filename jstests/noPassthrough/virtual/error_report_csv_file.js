@@ -16,7 +16,7 @@ db.dropDatabase();
 
 const coll = db.ext_csv;
 
-(function CollectEachErrorCases() {
+(function collectEachErrorCases() {
     removeFile("/tmp/error_report.csv");
     copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report.csv", "/tmp/error_report.csv");
 

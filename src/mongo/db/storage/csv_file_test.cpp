@@ -17,7 +17,8 @@ protected:
 };
 
 TEST_F(CsvFileInputTest, CsvBasicRead) {
-    CsvFileInput input("csv_test/basicRead.csv", "csv_test/basicRead.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+    CsvFileInput input(dummyStats, "csv_test/basicRead.csv", "csv_test/basicRead.txt");
 
     std::vector expected = {
 
@@ -390,7 +391,8 @@ TEST_F(CsvFileInputTest, AbsentField) {
     correct: false
 })")};
 
-    CsvFileInput input("csv_test/absentField.csv", "csv_test/absentField.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+    CsvFileInput input(dummyStats, "csv_test/absentField.csv", "csv_test/absentField.txt");
     input.open();
 
     constexpr int bufSize = 250;
@@ -549,40 +551,48 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
 }
 
 TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
-    CsvFileInput input("DNE.csv", "DNE.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+
+    CsvFileInput input(dummyStats, "DNE.csv", "DNE.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, ErrorCodes::FileNotOpen);
 
-    CsvFileInput input1("DNE1.csv", "DNE1.txt");
+    CsvFileInput input1(dummyStats, "DNE1.csv", "DNE1.txt");
     ASSERT_THROWS_CODE(input1.open(), DBException, ErrorCodes::FileNotOpen);
 
-    CsvFileInput input2("DNE2.csv", "csv_test/badOid.txt");
+    CsvFileInput input2(dummyStats, "DNE2.csv", "csv_test/badOid.txt");
     ASSERT_THROWS_CODE(input2.open(), DBException, ErrorCodes::FileNotOpen);
 }
 
 TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
-    ASSERT_THROWS_CODE(
-        CsvFileInput("../diffLength.csv", "../csv_test/diffLength.txt"), DBException, 200000400);
+    auto dummyStats = std::make_shared<ErrorCount>();
+    ASSERT_THROWS_CODE(CsvFileInput(dummyStats, "../diffLength.csv", "../csv_test/diffLength.txt"),
+                       DBException,
+                       200000400);
 
-    ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
+    ASSERT_THROWS_CODE(
+        CsvFileInput(dummyStats, "../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
 
     ASSERT_THROWS_CODE(
-        CsvFileInput("basicRead.csv",
+        CsvFileInput(dummyStats,
+                     "basicRead.csv",
                      "../Users/youngjoonkim/mongo/src/mongo/db/storage/csv_test /tmp/"),
         DBException,
         200000401);
 }
 
 TEST_F(CsvFileInputTest, FailByBadMetadata) {
-    CsvFileInput input("csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+
+    CsvFileInput input(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, 200000403);
 
-    CsvFileInput input1("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
+    CsvFileInput input1(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
     ASSERT_THROWS_CODE(input1.open(), DBException, 200000403);
 
-    CsvFileInput input2("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
+    CsvFileInput input2(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
     ASSERT_THROWS_CODE(input2.open(), DBException, 200000404);
 
-    CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
+    CsvFileInput input3(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
     ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
 }
 
@@ -705,7 +715,8 @@ TEST_F(CsvFileInputTest, ErrorCount) {
 }
 
 TEST_F(CsvFileInputTest, SpecialNumericCase) {
-    CsvFileInput input("csv_test/specialNumeric.csv", "csv_test/specialNumeric.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+    CsvFileInput input(dummyStats, "csv_test/specialNumeric.csv", "csv_test/specialNumeric.txt");
     input.open();
 
     std::vector expected = {

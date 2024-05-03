@@ -49,21 +49,6 @@ namespace mongo {
 
 using namespace fmt::literals;
 
-CsvFileInput::CsvFileInput(const std::string& fileRelativePath,
-                           const std::string& metadataRelativePath)
-    : _fileAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
-                        fileRelativePath),
-      _metadataAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
-                            metadataRelativePath),
-      _ifs() {
-    uassert(200000400,
-            "File path must not include '..' but {} does"_format(_fileAbsolutePath),
-            _fileAbsolutePath.find("..") == std::string::npos);
-    uassert(200000401,
-            "File path must not include '..' but {} does"_format(_metadataAbsolutePath),
-            _metadataAbsolutePath.find("..") == std::string::npos);
-}
-
 CsvFileInput::CsvFileInput(std::shared_ptr<InputStreamStats> stats,
                            const std::string& fileRelativePath,
                            const std::string& metadataRelativePath)
@@ -108,8 +93,8 @@ void CsvFileInput::doOpen() {
             _ifs.is_open());
 }
 
-// Caller must ensure that buffer size is greater than or equal to the size of the bsonObject to
-// be returned. If not, it will throw an exception (Not enough size in buffer).
+// Caller must ensure that buffer size is greater than or equal to the size of the bsonObject to be
+// returned. If not, it will throw an exception (Not enough size in buffer).
 int CsvFileInput::doRead(char* data, int size) {
     auto bsonObj = readBsonObj();
 
@@ -146,17 +131,15 @@ bool CsvFileInput::isEof() const {
     return _ifs.eof();
 }
 
-// Assuming that header is returned by parseLine, which means, each of its element contains
-// name of the field with its typeInfo as string.
-// {"fieldName1/typeName1","fieldName/typeName1"...}
+// Assuming that header is returned by parseLine, which means, each of its element contains name of
+// the field with its typeInfo as string. {"fieldName1/typeName1","fieldName/typeName1"...}
 Metadata CsvFileInput::getMetadata(const std::vector<std::string>& header) {
     constexpr size_t typeNameAbsent = 0;
     Metadata ret;
 
     size_t fieldIndex = 0;
     for (const auto& field : header) {
-        // Throws an exception when field does not contain '/' at all or typename is absent
-        // after
+        // Throws an exception when field does not contain '/' at all or typename is absent after
         // '/'.
         size_t separatorIndex = field.find('/');
         size_t fieldLen = separatorIndex != std::string::npos ? field.length() - separatorIndex - 1

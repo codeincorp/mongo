@@ -50,7 +50,6 @@ using Metadata = std::vector<FieldInfo>;
 
 class CsvFileInput : public StreamableInput {
 public:
-    CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
     CsvFileInput(std::shared_ptr<InputStreamStats> stats,
                  const std::string& fileRelativePath,
                  const std::string& metadataRelativePath);
@@ -60,7 +59,7 @@ public:
         return _fileAbsolutePath;
     }
 
-    // Factory function to denote initial ErrorCount with 0 errors.
+    // Factory function to create an initial ErrorCount with 0 errors.
     static std::shared_ptr<ErrorCount> createStats();
 
     bool isOpen() const override;
