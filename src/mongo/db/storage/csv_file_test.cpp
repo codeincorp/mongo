@@ -12,12 +12,13 @@ using namespace fmt::literals;
 class CsvFileInputTest : public unittest::Test {
 protected:
     void setUp() override {
-        system("cp -rn src/mongo/db/storage/csv_test /tmp/");
+        system("cp -r src/mongo/db/storage/csv_test /tmp/");
     }
 };
 
 TEST_F(CsvFileInputTest, CsvBasicRead) {
-    CsvFileInput input("csv_test/basicRead.csv", "csv_test/basicRead.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+    CsvFileInput input(dummyStats, "csv_test/basicRead.csv", "csv_test/basicRead.txt");
 
     std::vector expected = {
 
@@ -266,7 +267,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     input.open();
     ASSERT_TRUE(input.isOpen());
 
-    int bufSize = 200;
+    constexpr int bufSize = 200;
     char buf[bufSize];
     int nRead = 0;
     int line = 0;
@@ -390,10 +391,11 @@ TEST_F(CsvFileInputTest, AbsentField) {
     correct: false
 })")};
 
-    CsvFileInput input("csv_test/absentField.csv", "csv_test/absentField.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+    CsvFileInput input(dummyStats, "csv_test/absentField.csv", "csv_test/absentField.txt");
     input.open();
 
-    int bufSize = 250;
+    constexpr int bufSize = 250;
     char buf[bufSize];
 
     for (int i = 0; i < 11; i++) {
@@ -404,150 +406,407 @@ TEST_F(CsvFileInputTest, AbsentField) {
     input.close();
 }
 
-TEST_F(CsvFileInputTest, FailByBadOID) {
-    CsvFileInput input("csv_test/badOid.csv", "csv_test/badOid.txt");
-    input.open();
+TEST_F(CsvFileInputTest, CollectInvalidOID) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput invalidOid(errorStats, "csv_test/badOid.csv", "csv_test/badOid.txt");
+    invalidOid.open();
 
-    int bufSize = 100;
+    constexpr int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 9; i++) {
-        ASSERT_THROWS(input.read(buf, bufSize), DBException);
+    while (!invalidOid.isEof()) {
+        invalidOid.read(buf, bufSize);
     }
-    input.close();
+    invalidOid.close();
+
+    auto errorStatus = errorStats;
+    ASSERT_NE(errorStatus, nullptr);
+    ASSERT_EQ(errorStatus->_invalidOid, 13);
+    ASSERT_EQ(errorStatus->_invalidInt32, 14);
+    ASSERT_EQ(errorStatus->_invalidDate, 14);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 41);
 }
 
-TEST_F(CsvFileInputTest, FailByBadInt) {
-    CsvFileInput badInt("csv_test/badInt.csv", "csv_test/badInt.txt");
-    badInt.open();
-    int bufSize = 100;
+TEST_F(CsvFileInputTest, CollectInvalidInt32) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput invalidInt32(errorStats, "csv_test/badInt.csv", "csv_test/badInt.txt");
+    invalidInt32.open();
+
+    constexpr int bufSize = 25;
     char buf[bufSize];
 
-    for (int i = 0; i < 6; i++) {
-        ASSERT_THROWS_CODE(badInt.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidInt32.isEof()) {
+        invalidInt32.read(buf, bufSize);
     }
-    badInt.close();
+    invalidInt32.close();
+
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_invalidInt32, 6);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 6);
 }
 
-TEST_F(CsvFileInputTest, FailByBadDate) {
-    CsvFileInput badDate("csv_test/badDate.csv", "csv_test/badDate.txt");
-    badDate.open();
-    int bufSize = 100;
+TEST_F(CsvFileInputTest, CollectInvalidDate) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput invalidDate(errorStats, "csv_test/badDate.csv", "csv_test/badDate.txt");
+    invalidDate.open();
+
+    constexpr int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS_CODE(badDate.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidDate.isEof()) {
+        invalidDate.read(buf, bufSize);
     }
-    badDate.close();
+    invalidDate.close();
+
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_invalidDate, 4);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 4);
 }
 
-TEST_F(CsvFileInputTest, FailByBadLong) {
-    CsvFileInput badLong("csv_test/badLong.csv", "csv_test/badLong.txt");
-    badLong.open();
-    int bufSize = 100;
+TEST_F(CsvFileInputTest, CollectInvalidInt64) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput invalidInt64(errorStats, "csv_test/badLong.csv", "csv_test/badLong.txt");
+    invalidInt64.open();
+
+    constexpr int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 5; i++) {
-        ASSERT_THROWS_CODE(badLong.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidInt64.isEof()) {
+        invalidInt64.read(buf, bufSize);
     }
-    badLong.close();
+    invalidInt64.close();
+
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_invalidInt64, 5);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 5);
 }
 
-TEST_F(CsvFileInputTest, FailByBadBoolean) {
-    CsvFileInput badBoolean("csv_test/badBoolean.csv", "csv_test/badBoolean.txt");
-    badBoolean.open();
-    int bufSize = 100;
+TEST_F(CsvFileInputTest, CollectInvalidBoolean) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput invalidBoolean(errorStats, "csv_test/badBoolean.csv", "csv_test/badBoolean.txt");
+    invalidBoolean.open();
+
+    constexpr int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 11; i++) {
-        ASSERT_THROWS_CODE(badBoolean.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidBoolean.isEof()) {
+        invalidBoolean.read(buf, bufSize);
     }
-    badBoolean.close();
+    invalidBoolean.close();
+
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_invalidBoolean, 11);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 11);
 }
 
-TEST_F(CsvFileInputTest, FailByBadDecimal) {
-    CsvFileInput badDecimal("csv_test/badDecimal.csv", "csv_test/badDecimal.txt");
-    badDecimal.open();
-    int bufSize = 100;
+TEST_F(CsvFileInputTest, CollectInvalidDouble) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput invalidDouble(errorStats, "csv_test/badDecimal.csv", "csv_test/badDecimal.txt");
+    invalidDouble.open();
+
+    constexpr int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS_CODE(badDecimal.read(buf, bufSize), DBException, ErrorCodes::BadValue);
+    while (!invalidDouble.isEof()) {
+        invalidDouble.read(buf, bufSize);
     }
-    badDecimal.close();
+    invalidDouble.close();
+
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_invalidDouble, 4);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 4);
 }
 
-TEST_F(CsvFileInputTest, FailByOutOfRange) {
-    CsvFileInput intOverflow("csv_test/intOutOfRange.csv", "csv_test/intOutOfRange.txt");
-    intOverflow.open();
-    int bufSize = 100;
+TEST_F(CsvFileInputTest, CollectOutOfRange) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput int32OutOfRange(
+        errorStats, "csv_test/intOutOfRange.csv", "csv_test/intOutOfRange.txt");
+    int32OutOfRange.open();
+
+    constexpr int bufSize = 100;
     char buf[bufSize];
 
-    for (int i = 0; i < 6; i++) {
-        ASSERT_THROWS_CODE(intOverflow.read(buf, bufSize), DBException, ErrorCodes::Overflow);
+    while (!int32OutOfRange.isEof()) {
+        int32OutOfRange.read(buf, bufSize);
     }
-    intOverflow.close();
+    int32OutOfRange.close();
 
-    CsvFileInput longOverflow("csv_test/longOutOfRange.csv", "csv_test/longOutOfRange.txt");
-    longOverflow.open();
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_outOfRange, 6);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 6);
 
-    for (int i = 0; i < 8; i++) {
-        ASSERT_THROWS_CODE(longOverflow.read(buf, bufSize), DBException, ErrorCodes::Overflow);
+    std::shared_ptr<ErrorCount> errorStats2 = CsvFileInput::createStats();
+    CsvFileInput int64OutOfRange(
+        errorStats2, "csv_test/longOutOfRange.csv", "csv_test/longOutOfRange.txt");
+    int64OutOfRange.open();
+
+    while (!int64OutOfRange.isEof()) {
+        int64OutOfRange.read(buf, bufSize);
     }
-    longOverflow.close();
-}
+    int64OutOfRange.close();
 
-TEST_F(CsvFileInputTest, BufferTooSmall) {
-    // Read should throw exception when buffer size is too small.
-    CsvFileInput input("csv_test/bufTooSmall.csv", "csv_test/bufTooSmall.txt");
-    input.open();
-
-    int bufSize = 5;
-    char buf[bufSize];
-
-    for (int i = 0; i < 4; i++) {
-        ASSERT_THROWS_CODE(input.read(buf, bufSize), DBException, 200000402);
-    }
-
-    input.close();
+    std::shared_ptr<ErrorCount> errorStatus2(errorStats2);
+    ASSERT_EQ(errorStatus2->_outOfRange, 8);
+    ASSERT_EQ(errorStatus2->_totalErrorCount, 8);
 }
 
 TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
-    CsvFileInput input("DNE.csv", "DNE.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+
+    CsvFileInput input(dummyStats, "DNE.csv", "DNE.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, ErrorCodes::FileNotOpen);
 
-    CsvFileInput input1("DNE1.csv", "DNE1.txt");
+    CsvFileInput input1(dummyStats, "DNE1.csv", "DNE1.txt");
     ASSERT_THROWS_CODE(input1.open(), DBException, ErrorCodes::FileNotOpen);
 
-    CsvFileInput input2("DNE2.csv", "csv_test/badOid.txt");
+    CsvFileInput input2(dummyStats, "DNE2.csv", "csv_test/badOid.txt");
     ASSERT_THROWS_CODE(input2.open(), DBException, ErrorCodes::FileNotOpen);
 }
 
 TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
-    ASSERT_THROWS_CODE(
-        CsvFileInput("../diffLength.csv", "../csv_test/diffLength.txt"), DBException, 200000400);
+    auto dummyStats = std::make_shared<ErrorCount>();
+    ASSERT_THROWS_CODE(CsvFileInput(dummyStats, "../diffLength.csv", "../csv_test/diffLength.txt"),
+                       DBException,
+                       200000400);
 
-    ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
+    ASSERT_THROWS_CODE(
+        CsvFileInput(dummyStats, "../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
 
     ASSERT_THROWS_CODE(
-        CsvFileInput("basicRead.csv",
+        CsvFileInput(dummyStats,
+                     "basicRead.csv",
                      "../Users/youngjoonkim/mongo/src/mongo/db/storage/csv_test /tmp/"),
         DBException,
         200000401);
 }
 
 TEST_F(CsvFileInputTest, FailByBadMetadata) {
-    CsvFileInput input("csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
+    auto dummyStats = std::make_shared<ErrorCount>();
+
+    CsvFileInput input(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, 200000403);
 
-    CsvFileInput input1("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
+    CsvFileInput input1(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
     ASSERT_THROWS_CODE(input1.open(), DBException, 200000403);
 
-    CsvFileInput input2("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
+    CsvFileInput input2(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
     ASSERT_THROWS_CODE(input2.open(), DBException, 200000404);
 
-    CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
+    CsvFileInput input3(dummyStats, "csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
     ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
+}
+
+TEST_F(CsvFileInputTest, ErrorCount) {
+    std::shared_ptr<ErrorCount> errorStats = CsvFileInput::createStats();
+    CsvFileInput input(errorStats, "csv_test/errorCount.csv", "csv_test/errorCount.txt");
+    input.open();
+
+    std::vector expected = {
+
+        fromjson(R"(
+{
+    kString: "string",
+    number: null,
+    distant: null,
+    quadruple: null,
+    RightOrWrong: null,
+    identifier: null, 
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "holyMoly",
+    number: 34,
+    distant: 1234567890,
+    quadruple: 35.23,
+    RightOrWrong: true,
+    identifier: ObjectId("123456789012345678901234"), 
+    signOn: {$date: "2024-04-12T13:36:37.100-06:00"}
+})"),
+        fromjson(R"(
+{
+    kString: "Christopher Columbus",
+    number: 48,
+    distant: 12345678901,
+    quadruple: 48.12,
+    RightOrWrong: null,
+    identifier: null,
+    signOn: {$date: "2024-04-11T13:34:34.343Z"}
+})"),
+        fromjson(R"(
+{
+    kString: "Backpack",
+    number: 55,
+    distant: 33,
+    quadruple: 45.0,
+    RightOrWrong: null,
+    identifier: null,
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "Cannot",
+    number: null,
+    distant: null,
+    quadruple: 33.4,
+    RightOrWrong: true,
+    identifier: ObjectId("123456789123456789abcdef"),
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "smoking Hot",
+    number: 34,
+    distant: 12345678901,
+    quadruple: null,
+    RightOrWrong: null,
+    identifier: null,
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: null,
+    number: null,
+    distant: null,
+    quadruple: 90.09,
+    RightOrWrong: false,
+    identifier: null,
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "Really Really Really Really Really Long String I mean Really Really Long",
+    number: 3,
+    distant: 45,
+    quadruple: 1.2,
+    RightOrWrong: false,
+    identifier: ObjectId("884cdc3ef43ff10ca56e23fd"),
+    signOn: null
+})"),
+        fromjson(R"(
+{
+    kString: "Strong and Sound",
+    number: 23,
+    distant: 9000000000,
+    quadruple: 1345.232,
+    RightOrWrong: true
+})")};
+
+    constexpr int bufSize = 200;
+    char buf[bufSize];
+    for (const BSONObj& expect : expected) {
+        input.read(buf, bufSize);
+        ASSERT_BSONOBJ_EQ(BSONObj(buf), expect);
+    }
+
+    std::shared_ptr<ErrorCount> errorStatus(errorStats);
+    ASSERT_EQ(errorStatus->_incompleteConversionToNumeric, 4);
+    ASSERT_EQ(errorStatus->_invalidInt32, 1);
+    ASSERT_EQ(errorStatus->_invalidInt64, 1);
+    ASSERT_EQ(errorStatus->_invalidDouble, 2);
+    ASSERT_EQ(errorStatus->_outOfRange, 4);
+    ASSERT_EQ(errorStatus->_invalidDate, 6);
+    ASSERT_EQ(errorStatus->_invalidOid, 5);
+    ASSERT_EQ(errorStatus->_invalidBoolean, 4);
+    ASSERT_EQ(errorStatus->_nonCompliantWithMetadata, 1);
+    ASSERT_EQ(errorStatus->_totalErrorCount, 28);
+
+    input.close();
+}
+
+TEST_F(CsvFileInputTest, SpecialNumericCase) {
+    auto dummyStats = std::make_shared<ErrorCount>();
+    CsvFileInput input(dummyStats, "csv_test/specialNumeric.csv", "csv_test/specialNumeric.txt");
+    input.open();
+
+    std::vector expected = {
+
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: nan })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: INF })"),
+        fromjson(R"({ stodSpecial: -INF })"),
+        fromjson(R"({ stodSpecial: -INF })"),
+        fromjson(R"({ stodSpecial: 4.5123e+10 })"),
+        fromjson(R"({ stodSpecial: 6.634 })"),
+        fromjson(R"({ stodSpecial: 6711340000000 })"),
+        fromjson(R"({ stodSpecial: 9.024434 })"),
+        fromjson(R"({ stodSpecial: nan })")};
+
+    constexpr int bufSize = 100;
+    char buf[bufSize];
+
+    for (int i = 0; i < 14; i++) {
+        input.read(buf, bufSize);
+        ASSERT_BSONOBJ_EQ(BSONObj(buf), expected[i]);
+    }
+}
+
+TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
+    ErrorCount errorStats1;
+    errorStats1._incompleteConversionToNumeric = 4;
+    errorStats1._invalidInt32 = 1;
+    errorStats1._invalidInt64 = 1;
+    errorStats1._invalidDouble = 2;
+    errorStats1._outOfRange = 4;
+    errorStats1._invalidDate = 6;
+    errorStats1._invalidOid = 5;
+    errorStats1._invalidBoolean = 4;
+    errorStats1._nonCompliantWithMetadata = 1;
+    errorStats1._totalErrorCount = 28;
+
+    ErrorCount errorStats2;
+    errorStats2._incompleteConversionToNumeric = 1;
+    errorStats2._invalidInt32 = 1;
+    errorStats2._invalidInt64 = 1;
+    errorStats2._invalidDouble = 1;
+    errorStats2._outOfRange = 1;
+    errorStats2._invalidDate = 1;
+    errorStats2._invalidOid = 1;
+    errorStats2._invalidBoolean = 1;
+    errorStats2._nonCompliantWithMetadata = 1;
+    errorStats2._totalErrorCount = 9;
+
+    ErrorCount errorStats3;
+    errorStats3._incompleteConversionToNumeric = 1;
+    errorStats3._invalidInt32 = 3;
+    errorStats3._invalidInt64 = 2;
+    errorStats3._invalidDouble = 4;
+    errorStats3._outOfRange = 2;
+    errorStats3._invalidDate = 1;
+    errorStats3._invalidOid = 2;
+    errorStats3._invalidBoolean = 4;
+    errorStats3._nonCompliantWithMetadata = 3;
+    errorStats3._totalErrorCount = 22;
+
+    auto totalErrorStats = errorStats1 + errorStats2 + errorStats3;
+    ASSERT_EQ(totalErrorStats._incompleteConversionToNumeric, 6);
+    ASSERT_EQ(totalErrorStats._invalidInt32, 5);
+    ASSERT_EQ(totalErrorStats._invalidInt64, 4);
+    ASSERT_EQ(totalErrorStats._invalidDouble, 7);
+    ASSERT_EQ(totalErrorStats._outOfRange, 7);
+    ASSERT_EQ(totalErrorStats._invalidDate, 8);
+    ASSERT_EQ(totalErrorStats._invalidOid, 8);
+    ASSERT_EQ(totalErrorStats._invalidBoolean, 9);
+    ASSERT_EQ(totalErrorStats._nonCompliantWithMetadata, 5);
+    ASSERT_EQ(totalErrorStats._totalErrorCount, 59);
+
+    errorStats1 += errorStats2 + errorStats3;
+    ASSERT_EQ(errorStats1._incompleteConversionToNumeric, 6);
+    ASSERT_EQ(errorStats1._invalidInt32, 5);
+    ASSERT_EQ(errorStats1._invalidInt64, 4);
+    ASSERT_EQ(errorStats1._invalidDouble, 7);
+    ASSERT_EQ(errorStats1._outOfRange, 7);
+    ASSERT_EQ(errorStats1._invalidDate, 8);
+    ASSERT_EQ(errorStats1._invalidOid, 8);
+    ASSERT_EQ(errorStats1._invalidBoolean, 9);
+    ASSERT_EQ(errorStats1._nonCompliantWithMetadata, 5);
+    ASSERT_EQ(errorStats1._totalErrorCount, 59);
+    ASSERT_NE(&totalErrorStats, &errorStats1);
 }
 
 }  // namespace mongo
