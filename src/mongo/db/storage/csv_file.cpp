@@ -49,26 +49,20 @@ namespace mongo {
 
 using namespace fmt::literals;
 
-CsvFileInput::CsvFileInput(std::shared_ptr<InputStreamStats> stats,
-                           const std::string& fileRelativePath,
+CsvFileInput::CsvFileInput(const std::string& fileRelativePath,
                            const std::string& metadataRelativePath)
     : _fileAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
                         fileRelativePath),
       _metadataAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
                             metadataRelativePath),
-      _ifs() {
+      _ifs(),
+      _ioStats(std::make_unique<CsvFileIoStats>()) {
     uassert(200000400,
             "File path must not include '..' but {} does"_format(_fileAbsolutePath),
             _fileAbsolutePath.find("..") == std::string::npos);
     uassert(200000401,
             "File path must not include '..' but {} does"_format(_metadataAbsolutePath),
             _metadataAbsolutePath.find("..") == std::string::npos);
-
-    _errorStats = dynamic_cast<ErrorCount*>(stats.get());
-}
-
-std::shared_ptr<ErrorCount> CsvFileInput::createStats() {
-    return std::make_shared<ErrorCount>();
 }
 
 CsvFileInput::~CsvFileInput() {
@@ -189,17 +183,17 @@ void CsvFileInput::appendTo<CsvFieldType::kInt32>(BSONObjBuilder& builder,
     try {
         converted = stoi(data, &idx);
     } catch (const std::invalid_argument&) {
-        _errorStats->incInvalidInt32();
+        _ioStats->incInvalidInt32();
         builder.appendNull(fieldName);
         return;
     } catch (const std::out_of_range&) {
-        _errorStats->incOutOfRange();
+        _ioStats->incOutOfRange();
         builder.appendNull(fieldName);
         return;
     }
 
     if (idx != data.length()) {
-        _errorStats->incIncompleteConversionToNumeric();
+        _ioStats->incIncompleteConversionToNumeric();
     }
     builder.append(fieldName, converted);
 }
@@ -212,11 +206,11 @@ void CsvFileInput::appendTo<CsvFieldType::kDouble>(BSONObjBuilder& builder,
     try {
         converted = stod(data);
     } catch (const std::invalid_argument&) {
-        _errorStats->incInvalidDouble();
+        _ioStats->incInvalidDouble();
         builder.appendNull(fieldName);
         return;
     } catch (const std::out_of_range&) {
-        _errorStats->incOutOfRange();
+        _ioStats->incOutOfRange();
         builder.appendNull(fieldName);
         return;
     }
@@ -233,17 +227,17 @@ void CsvFileInput::appendTo<CsvFieldType::kInt64>(BSONObjBuilder& builder,
     try {
         converted = stoll(data, &idx);
     } catch (const std::invalid_argument&) {
-        _errorStats->incInvalidInt64();
+        _ioStats->incInvalidInt64();
         builder.appendNull(fieldName);
         return;
     } catch (const std::out_of_range&) {
-        _errorStats->incOutOfRange();
+        _ioStats->incOutOfRange();
         builder.appendNull(fieldName);
         return;
     }
 
     if (idx != data.length()) {
-        _errorStats->incIncompleteConversionToNumeric();
+        _ioStats->incIncompleteConversionToNumeric();
     }
     builder.append(fieldName, converted);
 }
@@ -261,7 +255,7 @@ void CsvFileInput::appendTo<CsvFieldType::kDate>(BSONObjBuilder& builder,
                                                  const std::string& data) {
     auto date = dateFromISOString(data);
     if (!date.isOK()) {
-        _errorStats->incInvalidDate();
+        _ioStats->incInvalidDate();
         builder.appendNull(fieldName);
         return;
     }
@@ -282,7 +276,7 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
             mutableData.begin(), mutableData.begin() + kOidTypeStr, mutableData.begin(), ::tolower);
 
         if (mutableData.substr(0, kOidTypeStrPrefix) != "objectid(\"") {
-            _errorStats->incInvalidOid();
+            _ioStats->incInvalidOid();
             builder.appendNull(fieldName);
             return;
         }
@@ -293,7 +287,7 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     }
 
     if (mutableData.length() != kLengthOidValue) {
-        _errorStats->incInvalidOid();
+        _ioStats->incInvalidOid();
         builder.appendNull(fieldName);
         return;
     }
@@ -302,7 +296,7 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     try {
         id = mongo::OID(mutableData);  // Throws exception if it detects bad OID.
     } catch (const ExceptionFor<ErrorCodes::FailedToParse>&) {
-        _errorStats->incInvalidOid();
+        _ioStats->incInvalidOid();
         builder.appendNull(fieldName);
         return;
     }
@@ -324,13 +318,12 @@ void CsvFileInput::appendTo<CsvFieldType::kBool>(BSONObjBuilder& builder,
              mutableData == "n" || mutableData == "0")
         val = false;
     else {
-        _errorStats->incInvalidBoolean();
+        _ioStats->incInvalidBoolean();
         builder.appendNull(fieldName);
         return;
     }
     builder.append(fieldName, val);
 }
-
 
 boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     std::string record;
@@ -344,7 +337,7 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
 
     // If data and metadata have different number of fields, process as many fields as possible.
     if (data.size() != _metadata.size()) {
-        _errorStats->incNonCompliantWithMetadata();
+        _ioStats->incNonCompliantWithMetadata();
     }
 
     BSONObjBuilder builder;

@@ -68,6 +68,8 @@ private:
 #endif
 };
 
+struct IoStats;
+
 class NamedPipeInput : public StreamableInput {
 public:
     NamedPipeInput(const std::string& pipeRelativePath);
@@ -79,6 +81,16 @@ public:
     bool isGood() const override;
     bool isFailed() const override;
     bool isEof() const override;
+
+    // Nothing to return for IoStats.
+    std::unique_ptr<IoStats> extractIoStatsSnapshot() {
+        return nullptr;
+    }
+
+    // Nothing to return for IoStats.
+    std::unique_ptr<IoStats> releaseIoStats() {
+        return nullptr;
+    }
 
 protected:
     void doOpen() override;

@@ -615,7 +615,7 @@ unique_ptr<PlanStageStats> CollectionScan::getStats() {
 
 const SpecificStats* CollectionScan::getSpecificStats() const {
     if (_cursor) {
-        _specificStats._recordStoreStats = _cursor->getStats();
+        _specificStats._ioStats = _cursor->getIoStats();
     }
     return &_specificStats;
 }

@@ -43,6 +43,7 @@
 #include "mongo/db/operation_context.h"
 #include "mongo/db/record_id.h"
 #include "mongo/db/storage/input_stream.h"
+#include "mongo/db/storage/io_stats.h"
 #include "mongo/db/storage/record_store.h"
 #include "mongo/util/assert_util.h"
 
@@ -53,7 +54,7 @@ public:
 
     boost::optional<Record> next() override;
 
-    boost::optional<BSONObj> getStats() const override;
+    boost::optional<BSONObj> getIoStats() override;
 
     // This block of overrides are all essentially no-ops as they are for lock yielding but the
     // external data source is read-only.
@@ -82,6 +83,8 @@ private:
     void expandBuffer(int32_t bsonSize);
     boost::optional<Record> nextFromCurrentStream();
     std::unique_ptr<InputStream> getInputStream();
+
+    void processIoStats(std::unique_ptr<IoStats>&& newIoStats);
 
     // The size in bytes of a BSON object's "size" prefix.
     static constexpr int kSizeSize = static_cast<int>(sizeof(int32_t));
@@ -115,6 +118,7 @@ private:
 
     const VirtualCollectionOptions& _vopts;  // metadata containing the pipe URLs
 
-    std::shared_ptr<InputStreamStats> _stats;
+    // IO-related statistics per each StorageTypeEnum & FileTypeEnum pair.
+    std::vector<std::unique_ptr<IoStats>> _ioStatsPerType;
 };
 }  // namespace mongo

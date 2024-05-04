@@ -20,7 +20,7 @@ const coll = db.ext_csv;
     removeFile("/tmp/error_report.csv");
     copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report.csv", "/tmp/error_report.csv");
 
-    jsTestLog("Running CollectEachErrorCases Test");
+    jsTestLog("Running collectEachErrorCases Test");
     coll.drop();
     db.createCollection("ext_csv", {
         virtual: {
@@ -28,7 +28,7 @@ const coll = db.ext_csv;
             metadataUrl: "file://error_report.txt"
         }
     });
-    const expectedRecordStoreStats = {
+    const expectedIoStats = {
         "incompleteConversionToNumeric": NumberLong(4),
         "invalidInt32": NumberLong(1),
         "invalidInt64": NumberLong(1),
@@ -43,11 +43,11 @@ const coll = db.ext_csv;
     const res = coll.explain("executionStats")
                     .find({"number": {$gte: 30}}, {kString: 1, number: 1, identifier: 1, signOn: 1})
                     .finish();
-    const recordStoreStats = getPlanStage(res.executionStats.executionStages, "COLLSCAN");
-    assert.neq(null, recordStoreStats);
-    assert.eq(expectedRecordStoreStats,
-              recordStoreStats.recordStoreStats,
-              `Expected ${tojson(expectedRecordStoreStats)} but got ${tojson(res)}`);
+    const collScanStage = getPlanStage(res.executionStats.executionStages, "COLLSCAN");
+    assert.neq(null, collScanStage);
+    assert.eq(expectedIoStats,
+              collScanStage.ioStats.csv,
+              `Expected ${tojson(expectedIoStats)} but got ${tojson(res)}`);
 })();
 
 (function multipleCsvStreams() {
@@ -56,7 +56,7 @@ const coll = db.ext_csv;
     removeFile("/tmp/error_report3.csv");
     copyFile(pwd() + "/jstests/noPassthrough/virtual/error_report3.csv", "/tmp/error_report3.csv");
 
-    jsTestLog("Running MultipleCsvStreams Test");
+    jsTestLog("Running multipleCsvStreams Test");
     coll.drop();
     db.createCollection("ext_csv", {
         virtual: {
@@ -69,7 +69,7 @@ const coll = db.ext_csv;
         }
     });
 
-    const expectedRecordStoreStats = {
+    const expectedIoStats = {
         "incompleteConversionToNumeric": NumberLong(6),
         "invalidInt32": NumberLong(5),
         "invalidInt64": NumberLong(4),
@@ -83,11 +83,11 @@ const coll = db.ext_csv;
     };
 
     const res = coll.explain("executionStats").find().finish();
-    const recordStoreStats = getPlanStage(res.executionStats.executionStages, "COLLSCAN");
-    assert.neq(null, recordStoreStats);
-    assert.eq(expectedRecordStoreStats,
-              recordStoreStats.recordStoreStats,
-              `Expected ${tojson(expectedRecordStoreStats)} but got ${tojson(res)}`);
+    const collScanStage = getPlanStage(res.executionStats.executionStages, "COLLSCAN");
+    assert.neq(null, collScanStage);
+    assert.eq(expectedIoStats,
+              collScanStage.ioStats.csv,
+              `Expected ${tojson(expectedIoStats)} but got ${tojson(res)}`);
 })();
 
 MongoRunner.stopMongod(conn);
