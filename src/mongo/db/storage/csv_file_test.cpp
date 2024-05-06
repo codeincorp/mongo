@@ -416,7 +416,8 @@ TEST_F(CsvFileInputTest, CollectInvalidOID) {
     }
     invalidOid.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(invalidOid.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(invalidOid.releaseIoStats().release())};
     ASSERT_NE(csvFileIoStats, nullptr);
     ASSERT_EQ(csvFileIoStats->_invalidOid, 13);
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 14);
@@ -436,7 +437,8 @@ TEST_F(CsvFileInputTest, CollectInvalidInt32) {
     }
     invalidInt32.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(invalidInt32.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(invalidInt32.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 6);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 6);
 }
@@ -453,7 +455,8 @@ TEST_F(CsvFileInputTest, CollectInvalidDate) {
     }
     invalidDate.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(invalidDate.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(invalidDate.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidDate, 4);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 4);
 }
@@ -470,7 +473,8 @@ TEST_F(CsvFileInputTest, CollectInvalidInt64) {
     }
     invalidInt64.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(invalidInt64.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(invalidInt64.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidInt64, 5);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 5);
 }
@@ -487,7 +491,8 @@ TEST_F(CsvFileInputTest, CollectInvalidBoolean) {
     }
     invalidBoolean.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(invalidBoolean.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(invalidBoolean.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidBoolean, 11);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 11);
 }
@@ -504,7 +509,8 @@ TEST_F(CsvFileInputTest, CollectInvalidDouble) {
     }
     invalidDouble.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(invalidDouble.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(invalidDouble.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidDouble, 4);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 4);
 }
@@ -521,7 +527,8 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
     }
     int32OutOfRange.close();
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(int32OutOfRange.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(int32OutOfRange.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_outOfRange, 6);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 6);
 
@@ -533,8 +540,8 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
     }
     int64OutOfRange.close();
 
-    auto csvFileIoStats2 =
-        dynamic_cast<CsvFileIoStats*>(int64OutOfRange.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats2{
+        dynamic_cast<CsvFileIoStats*>(int64OutOfRange.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats2->_outOfRange, 8);
     ASSERT_EQ(csvFileIoStats2->_totalErrorCount, 8);
 }
@@ -679,7 +686,8 @@ TEST_F(CsvFileInputTest, ErrorCount) {
         ASSERT_BSONOBJ_EQ(BSONObj(buf), expect);
     }
 
-    auto csvFileIoStats = dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release());
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_incompleteConversionToNumeric, 4);
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 1);
     ASSERT_EQ(csvFileIoStats->_invalidInt64, 1);
