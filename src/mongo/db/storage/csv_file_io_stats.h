@@ -29,11 +29,16 @@
 
 #pragma once
 
-#include "mongo/db/storage/input_stream.h"
 #include <cstdint>
 
+#include "mongo/db/storage/io_stats.h"
+
 namespace mongo {
-struct ErrorCount : public InputStreamStats {
+/**
+ * Error count statistics for various error reasons while parsing CSV file(s). This implements
+ * IoStats interface.
+ */
+struct CsvFileIoStats : public IoStats {
     // Variables to keep track of the count of errors occured during reading csv file.
     int64_t _incompleteConversionToNumeric = 0;
     int64_t _invalidInt32 = 0;
@@ -46,27 +51,43 @@ struct ErrorCount : public InputStreamStats {
     int64_t _nonCompliantWithMetadata = 0;
     int64_t _totalErrorCount = 0;
 
-    boost::optional<BSONObj> toBson() const override {
-        BSONObjBuilder builder;
-        builder.append("incompleteConversionToNumeric", _incompleteConversionToNumeric);
-        builder.append("invalidInt32", _invalidInt32);
-        builder.append("invalidInt64", _invalidInt64);
-        builder.append("invalidDouble", _invalidDouble);
-        builder.append("outOfRange", _outOfRange);
-        builder.append("invalidDate", _invalidDate);
-        builder.append("invalidOid", _invalidOid);
-        builder.append("invalidBoolean", _invalidBoolean);
-        builder.append("metadataAndDataDifferentLength", _nonCompliantWithMetadata);
-        builder.append("totalErrorCount", _totalErrorCount);
-        return builder.done().getOwned();
+    StorageTypeEnum getStorageType() const override {
+        return StorageTypeEnum::file;
     }
 
-    ErrorCount operator+(const ErrorCount& other) const {
-        ErrorCount ret(*this);
+    FileTypeEnum getFileType() const override {
+        return FileTypeEnum::csv;
+    }
+
+    IoStats& aggregate(const IoStats& other) override {
+        const CsvFileIoStats* otherErrorCount = dynamic_cast<const CsvFileIoStats*>(&other);
+        invariant(otherErrorCount);
+        *this += *otherErrorCount;
+        return *this;
+    }
+
+    BSONObjBuilder& appendTo(BSONObjBuilder& builder) const override {
+        BSONObjBuilder sub(builder.subobjStart("csv"));
+        sub.append("incompleteConversionToNumeric", _incompleteConversionToNumeric);
+        sub.append("invalidInt32", _invalidInt32);
+        sub.append("invalidInt64", _invalidInt64);
+        sub.append("invalidDouble", _invalidDouble);
+        sub.append("outOfRange", _outOfRange);
+        sub.append("invalidDate", _invalidDate);
+        sub.append("invalidOid", _invalidOid);
+        sub.append("invalidBoolean", _invalidBoolean);
+        sub.append("metadataAndDataDifferentLength", _nonCompliantWithMetadata);
+        sub.append("totalErrorCount", _totalErrorCount);
+        sub.doneFast();
+        return builder;
+    }
+
+    CsvFileIoStats operator+(const CsvFileIoStats& other) const {
+        CsvFileIoStats ret(*this);
         return ret += other;
     }
 
-    ErrorCount& operator+=(const ErrorCount& other) {
+    CsvFileIoStats& operator+=(const CsvFileIoStats& other) {
         _incompleteConversionToNumeric += other._incompleteConversionToNumeric;
         _invalidInt32 += other._invalidInt32;
         _invalidInt64 += other._invalidInt64;

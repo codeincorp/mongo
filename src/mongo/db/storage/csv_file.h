@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2024-present MongoDB, Inc.
+ *    Copyright (C) 2024-present Codein, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -34,8 +34,9 @@
 #include <string>
 #include <vector>
 
-#include "mongo/db/storage/error_count.h"
+#include "mongo/db/storage/csv_file_io_stats.h"
 #include "mongo/db/storage/input_object.h"
+#include "mongo/db/storage/io_stats.h"
 
 namespace mongo {
 
@@ -50,26 +51,31 @@ using Metadata = std::vector<FieldInfo>;
 
 class CsvFileInput : public StreamableInput {
 public:
-    CsvFileInput(std::shared_ptr<InputStreamStats> stats,
-                 const std::string& fileRelativePath,
-                 const std::string& metadataRelativePath);
+    CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
 
     ~CsvFileInput() override;
     const std::string& getAbsolutePath() const override {
         return _fileAbsolutePath;
     }
 
-    // Factory function to create an initial ErrorCount with 0 errors.
-    static std::shared_ptr<ErrorCount> createStats();
-
     bool isOpen() const override;
     bool isGood() const override;
     bool isFailed() const override;
     bool isEof() const override;
 
+    std::unique_ptr<IoStats> extractIoStatsSnapshot() {
+        auto r(std::move(_ioStats));
+        _ioStats = std::make_unique<CsvFileIoStats>();
+        return std::move(r);
+    }
+
+    std::unique_ptr<IoStats> releaseIoStats() {
+        return std::move(_ioStats);
+    }
+
 protected:
     void doOpen() override;
-    // Read the data into pre-allocated buffer 'data' upto 'size' bytes at maximum and returns the
+    // Reads the data into pre-allocated buffer 'data' upto 'size' bytes at maximum and returns the
     // number of bytes that has been actually read.
     int doRead(char* data, int size) override;
     void doClose() override;
@@ -99,14 +105,14 @@ private:
     void appendTo(BSONObjBuilder& builder, const std::string& fieldName, const std::string& data);
 
     // Reads each line from the CSV file and converts it into a BSONObj, being compliant with the
-    // metadata. it will return boost::none if there is no more line to read in the csv file.
+    // metadata. It will return boost::none if there is no more line to read in the csv file.
     boost::optional<BSONObj> readBsonObj();
 
     std::string _fileAbsolutePath;
     std::string _metadataAbsolutePath;
     std::ifstream _ifs;
     Metadata _metadata;
-    ErrorCount* _errorStats;
+    std::unique_ptr<CsvFileIoStats> _ioStats;
 };
 
 }  // namespace mongo
