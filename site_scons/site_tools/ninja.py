@@ -644,24 +644,26 @@ class NinjaState:
             },
         }
 
-        command = [
-            f"{sys.executable}",
-            "site_scons/mongo/ninja_bazel_build.py",
-            f"--ninja-file={self.env.get('NINJA_PREFIX')}.{self.env.get('NINJA_SUFFIX')}",
-        ]
-        if self.env.get('VERBOSE'):
-            command += ["--verbose"]
-        if self.env.get('BAZEL_INTEGRATION_DEBUG'):
-            command += ["--integration-debug"]
+        if self.env.get('BAZEL_BUILD_ENABLED'):
 
-        self.rules.update({
-            "RUN_BAZEL_BUILD": {
-                "command": " ".join(command),
-                "description": "Running bazel build",
-                "pool": "console",
-                "restat": 1,
-            }
-        })
+            command = [
+                f"{sys.executable}",
+                "site_scons/mongo/ninja_bazel_build.py",
+                f"--ninja-file={self.env.get('NINJA_PREFIX')}.{self.env.get('NINJA_SUFFIX')}",
+            ]
+            if self.env.get('VERBOSE'):
+                command += ["--verbose"]
+            if self.env.get('BAZEL_INTEGRATION_DEBUG'):
+                command += ["--integration-debug"]
+
+            self.rules.update({
+                "RUN_BAZEL_BUILD": {
+                    "command": " ".join(command),
+                    "description": "Running bazel build",
+                    "pool": "console",
+                    "restat": 1,
+                }
+            })
 
         num_jobs = self.env.get('NINJA_MAX_JOBS', self.env.GetOption("num_jobs"))
         self.pools = {
@@ -865,11 +867,6 @@ class NinjaState:
                 template_builders.append(build)
                 continue
 
-            if "order_only" not in build:
-                build["order_only"] = ["bazel_run_first"]
-            else:
-                build["order_only"].append("bazel_run_first")
-
             if "implicit" in build:
                 build["implicit"].sort()
 
@@ -1036,13 +1033,13 @@ class NinjaState:
             },
         )
 
-        ninja_sorted_build(
-            ninja,
-            outputs=["set_to_always_run_bazel", "bazel_run_first"] +
-            self.env["NINJA_BAZEL_OUTPUTS"],
-            inputs=[],
-            rule="RUN_BAZEL_BUILD",
-        )
+        if self.env.get("BAZEL_BUILD_ENABLED"):
+            ninja_sorted_build(
+                ninja,
+                outputs=self.env["NINJA_BAZEL_OUTPUTS"],
+                inputs=self.env["NINJA_BAZEL_INPUTS"],
+                rule="RUN_BAZEL_BUILD",
+            )
 
         # This sets up a dependency edge between build.ninja.in and build.ninja
         # without actually taking any action to transform one into the other
