@@ -571,6 +571,16 @@ env.CppUnitTest(
     ],
 )
 
+env.Benchmark(
+    target='csv_bm',
+    source=[
+        'csv_bm.cpp',
+    ],
+    LIBDEPS=[
+        'csv_file',
+    ],
+)
+
 env.Library(
     target='csv_file',
     source=[
