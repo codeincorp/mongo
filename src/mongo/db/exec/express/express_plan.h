@@ -59,6 +59,17 @@
 
 namespace mongo {
 namespace express {
+
+/**
+ * We encountered a situation where the record referenced by the index entry is gone. Check whether
+ * or not this read is ignoring prepare conflicts, then log and/or error appropriately.
+ */
+void logRecordNotFound(OperationContext* opCtx,
+                       const RecordId& rid,
+                       const BSONObj& indexKey,
+                       const BSONObj& keyPattern,
+                       const NamespaceString& ns);
+
 /**
  * The 'PlanProgress' variant (defined below) represents the possible return values from an
  * execution step in 'ExpressPlan' execution. It holds one of the following results.
@@ -125,7 +136,16 @@ public:
 
         Snapshotted<BSONObj> obj;
         bool found = (*_collection)->findDoc(opCtx, rid, &obj);
-        tassert(8884400, "Index references non-existent record id", found);
+        if (!found) {
+            logRecordNotFound(opCtx,
+                              rid,
+                              _queryFilter,
+                              _indexCatalogEntry->descriptor()->keyPattern(),
+                              _collection->get()->ns());
+            _exhausted = true;
+            return Exhausted();
+        }
+
         _stats->incNumDocumentsFetched(1);
 
         auto progress = continuation(*_collection, std::move(rid), std::move(obj));
@@ -166,12 +186,12 @@ private:
 
     BSONObj _queryFilter;  // Unowned BSON.
 
-    const CollectionPtr* _collection;             // Unowned.
-    const IndexCatalogEntry* _indexCatalogEntry;  // Unowned.
+    const CollectionPtr* _collection{nullptr};             // Unowned.
+    const IndexCatalogEntry* _indexCatalogEntry{nullptr};  // Unowned.
 
     bool _exhausted{false};
 
-    IteratorStats* _stats;
+    IteratorStats* _stats{nullptr};
 };
 
 /**
@@ -233,11 +253,11 @@ public:
 private:
     BSONObj _queryFilter;  // Unowned BSON.
 
-    const CollectionPtr* _collection;
+    const CollectionPtr* _collection{nullptr};
 
     bool _exhausted{false};
 
-    IteratorStats* _stats;
+    IteratorStats* _stats{nullptr};
 };
 
 class LookupViaUserIndex {
@@ -296,21 +316,37 @@ public:
             sortedAccessMethod->getSortedDataInterface()->getOrdering(),
             true /* forward */,
             true /* startKeyInclusive */);
-        auto keyEntry = indexCursor->seek(keyStringForSeek,
-                                          SortedDataInterface::Cursor::KeyInclusion::kExclude);
-        if (!keyEntry) {
+
+        auto keyEntry = indexCursor->seekForKeyValueView(keyStringForSeek);
+        if (keyEntry.isEmpty()) {
             _exhausted = true;
             return Exhausted();
         }
         _stats->incNumKeysExamined(1);
-        tassert(8884402, "Index entry with null record id", !keyEntry->loc.isNull());
+
+        auto rid = keyEntry.getRecordId();
+        tassert(8884402, "Index entry with null record id", rid && !rid->isNull());
 
         Snapshotted<BSONObj> obj;
-        bool found = (*_collection)->findDoc(opCtx, keyEntry->loc, &obj);
-        tassert(8884403, "Index references non-existent record id", found);
+        bool found = (*_collection)->findDoc(opCtx, *rid, &obj);
+        if (!found) {
+            const auto& keyPattern = _indexCatalogEntry->descriptor()->keyPattern();
+            auto dehydratedKp = key_string::toBson(keyEntry.getKeyStringWithoutRecordIdView(),
+                                                   Ordering::make(keyPattern),
+                                                   keyEntry.getTypeBitsView(),
+                                                   keyEntry.getVersion());
+
+            logRecordNotFound(opCtx,
+                              *rid,
+                              IndexKeyEntry::rehydrateKey(keyPattern, dehydratedKp),
+                              keyPattern,
+                              _collection->get()->ns());
+            return Ready();
+        }
+
         _stats->incNumDocumentsFetched(1);
 
-        auto progress = continuation(*_collection, std::move(keyEntry->loc), std::move(obj));
+        auto progress = continuation(*_collection, *rid, std::move(obj));
 
         // Only advance the iterator if the continuation completely processed its item, as indicated
         // by its return value.
@@ -356,14 +392,14 @@ private:
     const std::string _indexIdent;
     const std::string _indexName;
 
-    const CollectionPtr* _collection;             // Unowned.
-    const IndexCatalogEntry* _indexCatalogEntry;  // Unowned.
+    const CollectionPtr* _collection{nullptr};             // Unowned.
+    const IndexCatalogEntry* _indexCatalogEntry{nullptr};  // Unowned.
 
     const CollatorInterface* _collator;  // Owned by the query's ExpressionContext.
 
     bool _exhausted{false};
 
-    IteratorStats* _stats;
+    IteratorStats* _stats{nullptr};
 };
 
 class NoShardFilter {};
@@ -487,7 +523,7 @@ private:
     ShardFilterChoice _shardFilter;
     ProjectionChoice _projection;
 
-    PlanStats* _planStats;
+    PlanStats* _planStats{nullptr};
 };
 }  // namespace express
 }  // namespace mongo

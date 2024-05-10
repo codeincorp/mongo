@@ -51,8 +51,11 @@ static constexpr StringData kCursorOptionsField = "cursorOptions"_sd;
 static constexpr StringData kDocsRequestedField = "docsRequested"_sd;
 static constexpr StringData kBatchSizeField = "batchSize"_sd;
 static constexpr StringData kRequiresSearchSequenceToken = "requiresSearchSequenceToken"_sd;
+static constexpr StringData kReturnStoredSourceArg = "returnStoredSource"_sd;
+static constexpr StringData kSlowQueryLogFieldName = "slowQueryLog"_sd;
 
 static constexpr long long kMinimumMongotBatchSize = 10;
+static constexpr long long kDefaultMongotBatchSize = 101;
 
 // Default sort spec is to sort decreasing by search score.
 static const BSONObj kSortSpec = BSON("$searchScore" << -1);
@@ -75,13 +78,15 @@ std::vector<std::unique_ptr<executor::TaskExecutorCursor>> establishCursors(
     std::shared_ptr<executor::TaskExecutor> taskExecutor,
     bool preFetchNextBatch,
     std::function<boost::optional<long long>()> calcDocsNeededFn = nullptr,
-    std::unique_ptr<PlanYieldPolicy> yieldPolicy = nullptr);
+    std::unique_ptr<PlanYieldPolicy> yieldPolicy = nullptr,
+    boost::optional<long long> batchSize = boost::none);
 
 /**
  * Run the given search query against mongot and build one cursor object for each
  * cursor returned from mongot.
  * TODO SERVER-87077 This function should accept a InternalSearchMongotRemoteSpec rather than
  * require the fields passed individually.
+ * TODO SERVER-86733 Bounds should not be optional once batchSize tuning is enabled for SBE.
  */
 std::vector<std::unique_ptr<executor::TaskExecutorCursor>> establishCursorsForSearchStage(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,

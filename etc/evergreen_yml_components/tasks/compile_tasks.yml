@@ -138,9 +138,9 @@ variables:
       - enterprise-amazon2-openssl111
       - enterprise-amazon2-arm64-openssl111
       - enterprise-amazon2023
-      - enterprise-amazon2023-lto
+      # TODO(SERVER-85904) - enterprise-amazon2023-lto
       - enterprise-amazon2023-arm64
-      - enterprise-amazon2023-arm64-lto
+      # TODO(SERVER-85904) - enterprise-amazon2023-arm64-lto
       - enterprise-debian12-64
       - enterprise-linux-64-amazon-ami
       - enterprise-macos
@@ -223,7 +223,6 @@ tasks:
             install-all
             prove-unittests
           task_compile_flags: >-
-            BAZEL_BUILD_ENABLED=1
             ICECC=
             CCACHE=
             --build-profile=opt
@@ -242,7 +241,6 @@ tasks:
             build/opt/mongo/db/commands/libfsync_locked.a
             build/opt/mongo/db/commands/libtest_commands_enabled.a
           task_compile_flags: >-
-            BAZEL_BUILD_ENABLED=1
             ICECC=
             --build-profile=opt
             --ninja=disabled
@@ -392,6 +390,18 @@ tasks:
         vars:
           target: >-
             //src/mongo/platform:visibility_test1
+
+  - <<: *clang_tidy_task_template
+    name: run_bazel_clang_tidy
+    commands:
+      - func: "do scons setup"
+      - func: "fetch bazel"
+      - func: "bazel compile (gcc)"
+        vars:
+          compiler: gcc # gcc is required by bazel_compile.sh, but overridden by the --config=clang-tidy flag
+          # Note that we only run clang-tidy on the Mongo-authored targets, not on third-party code.
+          targets: //src/mongo/...
+          args: --config=clang-tidy
 
   - name: run_bazel_program_windows
     tags: ["assigned_to_jira_team_devprod_build", "auxiliary", "bazel_check"]
@@ -2692,7 +2702,8 @@ task_groups:
     name: compile_upload_benchmarks_TG
     tasks:
       - compile_upload_benchmarks
-      - compile_upload_benchmarks_debug
+      # TODO(SERVER-86426): Figure out a workable long-term solution to benchmark debug symbols
+      # - compile_upload_benchmarks_debug
 
   - <<: *compile_task_group_template
     name: compile_and_archive_dist_test_TG
@@ -2882,7 +2893,8 @@ task_groups:
       - run_dbtest
       - archive_dbtest
       - compile_upload_benchmarks
-      - compile_upload_benchmarks_debug
+      # TODO(SERVER-86426): Figure out a workable long-term solution to benchmark debug symbols
+      # - compile_upload_benchmarks_debug
       - compile_all_but_not_unittests
 
   - <<: *compile_task_group_template

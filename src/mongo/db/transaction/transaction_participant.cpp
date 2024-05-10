@@ -402,6 +402,15 @@ ActiveTransactionHistory fetchActiveTransactionHistory(OperationContext* opCtx,
                 insertStmtIdsForOplogEntry(entry);
             }
         } catch (const DBException& ex) {
+            if (ErrorCodes::isIDLParseError(ex.code()) || ex.code() == ErrorCodes::FailedToParse ||
+                ex.code() == ErrorCodes::TypeMismatch || ex.code() == ErrorCodes::BadValue) {
+                LOGV2_WARNING(
+                    8756300,
+                    "Failed to parse oplog entry during session load.  Did a downgrade happen?",
+                    "error"_attr = ex.toStatus());
+                result.hasIncompleteHistory = true;
+                break;
+            }
             if (ex.code() == ErrorCodes::IncompleteTransactionHistory) {
                 result.hasIncompleteHistory = true;
                 break;
@@ -611,7 +620,7 @@ void TransactionParticipant::performNoopWrite(OperationContext* opCtx, StringDat
     }
 
     {
-        AutoGetOplog oplogWrite(opCtx, OplogAccessMode::kWrite);
+        AutoGetOplogFastPath oplogWrite(opCtx, OplogAccessMode::kWrite);
         uassert(ErrorCodes::NotWritablePrimary,
                 "Not primary when performing noop write for {}"_format(msg),
                 replCoord->canAcceptWritesForDatabase(opCtx, DatabaseName::kAdmin));

@@ -155,6 +155,7 @@
 #include "mongo/s/analyze_shard_key_role.h"
 #include "mongo/s/chunk_version.h"
 #include "mongo/s/database_version.h"
+#include "mongo/s/query/document_source_merge_cursors.h"
 #include "mongo/s/query_analysis_sampler.h"
 #include "mongo/s/shard_cannot_refresh_due_to_locks_held_exception.h"
 #include "mongo/s/shard_version.h"
@@ -199,6 +200,7 @@ MONGO_FAIL_POINT_DEFINE(hangBeforeSessionCheckOut);
 MONGO_FAIL_POINT_DEFINE(hangAfterSessionCheckOut);
 MONGO_FAIL_POINT_DEFINE(hangBeforeSettingTxnInterruptFlag);
 MONGO_FAIL_POINT_DEFINE(hangAfterCheckingWritabilityForMultiDocumentTransactions);
+MONGO_FAIL_POINT_DEFINE(failWithErrorCodeAfterSessionCheckOut);
 
 // Tracks the number of times a legacy unacknowledged write failed due to
 // not primary error resulted in network disconnection.
@@ -821,6 +823,19 @@ void CheckoutSessionAndInvokeCommand::run() {
             tenant_migration_access_blocker::checkIfCanRunCommandOrBlock(
                 execContext.getOpCtx(), dbName, execContext.getRequest())
                 .get(execContext.getOpCtx());
+
+            if (auto scoped = failWithErrorCodeAfterSessionCheckOut.scoped();
+                MONGO_unlikely(scoped.isActive())) {
+                const auto errorCode =
+                    static_cast<ErrorCodes::Error>(scoped.getData()["errorCode"].numberInt());
+                LOGV2_DEBUG(8535500,
+                            1,
+                            "failWithErrorCodeAfterSessionCheckOut enabled, failing command",
+                            "errorCode"_attr = errorCode);
+                BSONObjBuilder errorBuilder;
+                return Status(errorCode, "failWithErrorCodeAfterSessionCheckOut enabled.");
+            }
+
             runCommandInvocation(_ecd->getExecutionContext(), _ecd->getInvocation());
             return Status::OK();
         } catch (const ExceptionForCat<ErrorCategory::TenantMigrationConflictError>& ex) {
@@ -1869,6 +1884,43 @@ void ExecCommandDatabase::_initiateCommand() {
     command->incrementCommandsExecuted();
 }
 
+namespace {
+bool canRetryCommandExecution(const HandleRequest::ExecutionContext& execContext) {
+    // Can not rerun the command when executing an aggregation that runs $mergeCursors as it may
+    // have consumed the cursors within.
+    if (execContext.getCommand()->getName() == "aggregate") {
+        const auto opCtx = execContext.getOpCtx();
+        const auto& opMsgRequest = execContext.getRequest();
+        SerializationContext serializationCtx = opMsgRequest.getSerializationContext();
+
+        const AggregateCommandRequest aggregationRequest =
+            aggregation_request_helper::parseFromBSON(
+                opMsgRequest.body,
+                opMsgRequest.validatedTenancyScope,
+                boost::none,
+                APIParameters::get(opCtx).getAPIStrict().value_or(false),
+                serializationCtx);
+
+        const auto& pipeline = aggregationRequest.getPipeline();
+        const auto hasMergeCursor =
+            std::any_of(pipeline.begin(), pipeline.end(), [](const BSONObj& stage) {
+                return stage.firstElementFieldNameStringData() ==
+                    DocumentSourceMergeCursors::kStageName;
+            });
+        if (hasMergeCursor) {
+            return false;
+        }
+    }
+
+    // Can not rerun the command when executing a GetMore command as the cursor may already be lost.
+    if (execContext.getCommand()->getName() == "getMore") {
+        return false;
+    }
+
+    return true;
+}
+}  // namespace
+
 void ExecCommandDatabase::_commandExec() {
     auto opCtx = _execContext.getOpCtx();
     auto& request = _execContext.getRequest();
@@ -1971,12 +2023,9 @@ void ExecCommandDatabase::_commandExec() {
                 if (refreshed) {
                     _refreshedCollection = true;
 
-                    // Can not rerun the command when executing a GetMore command as the cursor
-                    // is already lost.
-                    const auto isRunningGetMoreCmd =
-                        _execContext.getCommand()->getName() == "getMore";
+                    const auto canRetryCommand = canRetryCommandExecution(_execContext);
                     if (!opCtx->isContinuingMultiDocumentTransaction() && !inCriticalSection &&
-                        !isRunningGetMoreCmd) {
+                        canRetryCommand) {
                         _resetLockerStateAfterShardingUpdate(opCtx);
                         _commandExec();
                         return;
@@ -1999,10 +2048,8 @@ void ExecCommandDatabase::_commandExec() {
             if (refreshed) {
                 _refreshedCatalogCache = true;
 
-                // Can not rerun the command when executing a GetMore command as the cursor is
-                // already lost.
-                const auto isRunningGetMoreCmd = _execContext.getCommand()->getName() == "getMore";
-                if (!opCtx->isContinuingMultiDocumentTransaction() && !isRunningGetMoreCmd) {
+                const auto canRetryCommand = canRetryCommandExecution(_execContext);
+                if (!opCtx->isContinuingMultiDocumentTransaction() && canRetryCommand) {
                     _resetLockerStateAfterShardingUpdate(opCtx);
                     _commandExec();
                     return;

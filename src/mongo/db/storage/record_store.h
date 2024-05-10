@@ -189,7 +189,10 @@ public:
      */
     virtual void setSaveStorageCursorOnDetachFromOperationContext(bool) = 0;
 
-    virtual boost::optional<BSONObj> getStats() const {
+    /**
+     * Returns the optional IO Stats in BSONObj.
+     */
+    virtual boost::optional<BSONObj> getIoStats() {
         return boost::none;
     }
 };

@@ -155,6 +155,9 @@ __cache_config_local(WT_SESSION_IMPL *session, bool shared, const char *cfg[])
     conn->evict_threads_max = evict_threads_max;
     conn->evict_threads_min = evict_threads_min;
 
+    WT_RET(__wt_config_gets(session, cfg, "eviction.evict_sample_inmem", &cval));
+    conn->evict_sample_inmem = cval.val != 0;
+
     /* Retrieve the wait time and convert from milliseconds */
     WT_RET(__wt_config_gets(session, cfg, "cache_max_wait_ms", &cval));
     cache->cache_max_wait_us = (uint64_t)(cval.val * WT_THOUSAND);
@@ -298,7 +301,7 @@ __wt_cache_stats_update(WT_SESSION_IMPL *session)
     WT_CACHE *cache;
     WT_CONNECTION_IMPL *conn;
     WT_CONNECTION_STATS **stats;
-    uint64_t inuse, intl, leaf;
+    uint64_t intl, inuse, leaf;
 
     conn = S2C(session);
     cache = conn->cache;

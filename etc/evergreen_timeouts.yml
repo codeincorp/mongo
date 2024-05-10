@@ -15,6 +15,8 @@ overrides:
   enterprise-amazon-linux2-arm64-all-feature-flags-fuzzers:
     - task: aggregation_timeseries_fuzzer
       exec_timeout: 150 # 2.5 hours
+    - task: aggregation_blockprocessing_fuzzer
+      exec_timeout: 150 # 2.5 hours
 
   enterprise-amazon-linux2-arm64-all-feature-flags:
     - task: cursor_hints_to_query_settings_replset_passthrough
@@ -74,6 +76,22 @@ overrides:
     - task: buildscripts_test
       exec_timeout: 15
 
+  windows-debug-suggested:
+    - task: buildscripts_test
+      exec_timeout: 15
+
+  enterprise-windows-wtdevelop:
+    - task: buildscripts_test
+      exec_timeout: 15
+
+  windows:
+    - task: buildscripts_test
+      exec_timeout: 15
+
+  enterprise-windows:
+    - task: buildscripts_test
+      exec_timeout: 15
+
   macos:
     - task: replica_sets_jscore_passthrough
       exec_timeout: 150 # 2.5 hours
@@ -84,6 +102,8 @@ overrides:
 
   rhel80-asan:
     - task: aggregation_timeseries_fuzzer
+      exec_timeout: 360 # 6 hours
+    - task: aggregation_blockprocessing_fuzzer
       exec_timeout: 360 # 6 hours
     - task: aggregation_wildcard_fuzzer
       exec_timeout: 300 # 5 hours
@@ -99,6 +119,20 @@ overrides:
   rhel80-debug-aubsan-all-feature-flags:
     - task: update_timeseries_fuzzer
       exec_timeout: 180 # 3 hours
+    - task: change_stream_serverless_no_optimization_fuzzer
+      exec_timeout: 300 # 5 hours
+    - task: change_stream_serverless_fuzzer
+      exec_timeout: 300 # 5 hours
+    - task: change_stream_optimization_fuzzer
+      exec_timeout: 300 # 5 hours
+
+  rhel80-debug-aubsan:
+    - task: change_stream_serverless_no_optimization_fuzzer
+      exec_timeout: 300 # 5 hours
+    - task: change_stream_serverless_fuzzer
+      exec_timeout: 300 # 5 hours
+    - task: change_stream_optimization_fuzzer
+      exec_timeout: 300 # 5 hours
 
   rhel80-debug-aubsan-classic-engine:
     - task: update_timeseries_fuzzer
@@ -106,4 +140,6 @@ overrides:
 
   ubuntu1804-asan:
     - task: aggregation_timeseries_fuzzer
+      exec_timeout: 150 # 2.5 hours
+    - task: aggregation_blockprocessing_fuzzer
       exec_timeout: 150 # 2.5 hours

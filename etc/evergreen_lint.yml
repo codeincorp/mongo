@@ -110,11 +110,13 @@ rules:
           - incompatible_community
           - incompatible_windows
           - incompatible_mac
+          - incompatible_debian
           - incompatible_ppc
           - incompatible_s390x
           - incompatible_aubsan
           - incompatible_tsan
           - incompatible_debug_mode
+          - incompatible_system_allocator
           - incompatible_inmemory
           - incompatible_all_feature_flags
           - incompatible_development_variant

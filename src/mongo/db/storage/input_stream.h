@@ -33,23 +33,18 @@
 #include <utility>
 
 #include "mongo/db/storage/io_error_message.h"
+#include "mongo/db/storage/io_stats.h"
 #include "mongo/logv2/log.h"
 
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 namespace mongo {
-struct InputStreamStats {
-    /**
-     * Sometimes CsvFileInput can fail to read the data due to discrepancy between metadata and
-     * actual data(Ex: String data at int32 field). toBson returns BSONObj that
-     * summarizes how many times each kind of error has occured during the read.
-     */
-    virtual boost::optional<BSONObj> toBson() const = 0;
-    virtual ~InputStreamStats() {}
-};
+/**
+ * An interface to define APIs on an input stream object.
+ */
+struct InputStream {
+    virtual ~InputStream() {}
 
-class InputStream {
-public:
     /**
      * Reads 'count' bytes from the stream into the caller-provided 'buffer'. Caller is responsible
      * for ensuring 'buffer' size is >= 'count' bytes. The only reasons it should return fewer bytes
@@ -67,7 +62,15 @@ public:
      */
     virtual int readBytes(int count, char* buffer) = 0;
 
-    virtual ~InputStream() {}
+    /**
+     * Extracts the current IO stats and resets IO statistics to zero.
+     */
+    virtual std::unique_ptr<IoStats> extractIoStatsSnapshot() = 0;
+
+    /**
+     * Releases the IO stats.
+     */
+    virtual std::unique_ptr<IoStats> releaseIoStats() = 0;
 };
 
 /**
@@ -127,6 +130,14 @@ public:
                     "error"_attr = getErrorMessage("read", InputT::getAbsolutePath()));
 
         return -1;
+    }
+
+    std::unique_ptr<IoStats> extractIoStatsSnapshot() override {
+        return InputT::extractIoStatsSnapshot();
+    }
+
+    std::unique_ptr<IoStats> releaseIoStats() override {
+        return InputT::releaseIoStats();
     }
 
 private:

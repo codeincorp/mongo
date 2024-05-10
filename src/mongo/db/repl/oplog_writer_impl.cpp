@@ -64,7 +64,7 @@ Status insertDocsToOplogAndChangeCollections(OperationContext* opCtx,
                                              bool writeChangeColl,
                                              OplogWriter::Observer* observer) {
     WriteUnitOfWork wuow(opCtx);
-    boost::optional<AutoGetOplog> autoOplog;
+    boost::optional<AutoGetOplogFastPath> autoOplog;
     boost::optional<ChangeStreamChangeCollectionManager::ChangeCollectionsWriter> ccw;
 
     // Acquire locks. We must acquire the locks for all collections we intend to write to before
@@ -193,10 +193,6 @@ void OplogWriterImpl::_run() {
                   "point is disabled");
             rsSyncApplyStop.pauseWhileSet(opCtx);
         }
-
-        // Transition to SECONDARY state, if possible.
-        // TODO (SERVER-88447): investigate if this should be called here.
-        _replCoord->finishRecoveryIfEligible(opCtx);
 
         auto batch = _batcher.getNextBatch(opCtx, Seconds(1));
         if (batch.empty()) {

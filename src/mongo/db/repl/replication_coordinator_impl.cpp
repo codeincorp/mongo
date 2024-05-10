@@ -201,6 +201,8 @@ MONGO_FAIL_POINT_DEFINE(hangBeforeNewConfigValidationChecks);
 MONGO_FAIL_POINT_DEFINE(setCustomErrorInHelloResponseMongoD);
 // Throws right before the call into recoverTenantMigrationAccessBlockers.
 MONGO_FAIL_POINT_DEFINE(throwBeforeRecoveringTenantMigrationAccessBlockers);
+// Hang before allowing the transition from RECOVERING to SECONDARY.
+MONGO_FAIL_POINT_DEFINE(hangBeforeFinishRecovery);
 
 Atomic64Metric& replicationWaiterListMetric =
     *MetricBuilder<Atomic64Metric>("repl.waiters.replication");
@@ -869,6 +871,7 @@ void ReplicationCoordinatorImpl::_initialSyncerCompletionFunction(
     invariant(setFollowerMode(MemberState::RS_RECOVERING));
     auto opCtxHolder = cc().makeOperationContext();
     _externalState->startSteadyStateReplication(opCtxHolder.get(), this);
+    finishRecoveryIfEligible(opCtxHolder.get());
     // This log is used in tests to ensure we made it to this point.
     LOGV2_DEBUG(4853000, 1, "initial sync complete.");
 }
@@ -876,6 +879,7 @@ void ReplicationCoordinatorImpl::_initialSyncerCompletionFunction(
 void ReplicationCoordinatorImpl::_startDataReplication(OperationContext* opCtx) {
     if (_startedSteadyStateReplication.swap(true)) {
         // This is not the first call.
+        finishRecoveryIfEligible(opCtx);
         return;
     }
 
@@ -902,6 +906,7 @@ void ReplicationCoordinatorImpl::_startDataReplication(OperationContext* opCtx) 
         // an initial sync.
         _replicationProcess->getConsistencyMarkers()->setInitialSyncIdIfNotSet(opCtx);
         _externalState->startSteadyStateReplication(opCtx, this);
+        finishRecoveryIfEligible(opCtx);
         return;
     }
 
@@ -2682,8 +2687,8 @@ std::shared_ptr<const HelloResponse> ReplicationCoordinatorImpl::awaitHelloRespo
         LOGV2_DEBUG(6208204, 1, "Error while waiting for hello response", "status"_attr = status);
 
         // We decrement the counter on most errors. Note that some errors may already be covered
-        // by calls to resetNumAwaitingTopologyChanges(), which sets the counter to zero, so we
-        // only decrement non-zero counters. This is safe so long as:
+        // by calls to resetNumAwaitingTopologyChangesForAllSessionManagers(), which sets the
+        // counter to zero, so we only decrement non-zero counters. This is safe so long as:
         // 1) Increment + decrement calls always occur at a 1:1 ratio and in that order.
         // 2) All callers to increment/decrement/reset take locks.
         stdx::lock_guard lk(_mutex);
@@ -2715,11 +2720,11 @@ StatusWith<OpTime> ReplicationCoordinatorImpl::getLatestWriteOpTime(
     if (!canAcceptNonLocalWrites()) {
         return {ErrorCodes::NotWritablePrimary, "Not primary so can't get latest write optime"};
     }
-    const auto& oplog = LocalOplogInfo::get(opCtx)->getCollection();
+    const auto& oplog = LocalOplogInfo::get(opCtx)->getRecordStore();
     if (!oplog) {
         return {ErrorCodes::NamespaceNotFound, "oplog collection does not exist"};
     }
-    auto latestOplogTimestampSW = oplog->getRecordStore()->getLatestOplogTimestamp(opCtx);
+    auto latestOplogTimestampSW = oplog->getLatestOplogTimestamp(opCtx);
     if (!latestOplogTimestampSW.isOK()) {
         return latestOplogTimestampSW.getStatus();
     }
@@ -4151,7 +4156,7 @@ Status ReplicationCoordinatorImpl::_doReplSetReconfig(OperationContext* opCtx,
     // do a quick and cheap pass first to see if host and port exist in the new config. This is safe
     // as we are not allowed to have the same HostAndPort in the config twice. Matching HostandPort
     // implies matching isSelf, and it is actually preferrable to avoid checking the latter as it is
-    // succeptible to transient DNS errors.
+    // susceptible to transient DNS errors.
     auto quickIndex =
         _selfIndex >= 0 ? findOwnHostInConfigQuick(newConfig, getMyHostAndPort()) : -1;
     if (quickIndex >= 0) {
@@ -4535,6 +4540,31 @@ Status ReplicationCoordinatorImpl::processReplSetInitiate(OperationContext* opCt
                                                           const BSONObj& configObj,
                                                           BSONObjBuilder* resultObj) {
     LOGV2(21356, "replSetInitiate admin command received from client");
+    auto status = std::make_shared<Status>(Status::OK());
+    // Run the initiate logic in an internal thread, so that it will not be interrupted upon state
+    // transition. This user thread will also not be interrupted, since it does not obtain the
+    // global lock.
+    auto handle = _replExecutor->scheduleWork(
+        [status, configObj, resultObj, this](const executor::TaskExecutor::CallbackArgs& cb) {
+            *status = _runReplSetInitiate(configObj, resultObj);
+        });
+    if (!handle.isOK()) {
+        return handle.getStatus();
+    }
+
+    _replExecutor->wait(handle.getValue());
+    return *status;
+}
+
+Status ReplicationCoordinatorImpl::runReplSetInitiate_forTest(const BSONObj& configObj,
+                                                              BSONObjBuilder* resultObj) {
+    return _runReplSetInitiate(configObj, resultObj);
+}
+
+Status ReplicationCoordinatorImpl::_runReplSetInitiate(const BSONObj& configObj,
+                                                       BSONObjBuilder* resultObj) {
+    auto uniqueOpCtx = cc().makeOperationContext();
+    auto opCtx = uniqueOpCtx.get();
 
     stdx::unique_lock<Latch> lk(_mutex);
     if (!_settings.isReplSet()) {
@@ -4653,10 +4683,17 @@ Status ReplicationCoordinatorImpl::processReplSetInitiate(OperationContext* opCt
     // A configuration passed to replSetInitiate() with the current node as an arbiter
     // will fail validation with a "replSet initiate got ... while validating" reason.
     invariant(!newConfig.getMemberAt(myIndex.getValue()).isArbiter());
+
+    // After _finishReplSetInitiate, the new config should be installed. As a result, we can dismiss
+    // the scope guard for the config state that would reset the state to kConfigUninitialized. It
+    // is important to note that _startDataReplication may transition us to secondary mode while we
+    // are a single node replica set, which will cause us to run for election and kill
+    // resource-holding threads.
+    configStateGuard.dismiss();
+
     _externalState->startThreads();
     _startDataReplication(opCtx);
 
-    configStateGuard.dismiss();
     return Status::OK();
 }
 
@@ -4728,7 +4765,8 @@ void ReplicationCoordinatorImpl::_errorOnPromisesIfHorizonChanged(WithLock lk,
                                "Received a reconfig that changed the horizon mappings."});
         }
         _sniToValidConfigPromiseMap.clear();
-        HelloMetrics::get(opCtx)->resetNumAwaitingTopologyChanges();
+        HelloMetrics::get(opCtx)->resetNumAwaitingTopologyChangesForAllSessionManagers(
+            opCtx->getServiceContext());
     }
 
     if (oldIndex >= 0) {
@@ -4742,7 +4780,8 @@ void ReplicationCoordinatorImpl::_errorOnPromisesIfHorizonChanged(WithLock lk,
                                    "Received a reconfig that changed the horizon mappings."});
             }
             _createHorizonTopologyChangePromiseMapping(lk);
-            HelloMetrics::get(opCtx)->resetNumAwaitingTopologyChanges();
+            HelloMetrics::get(opCtx)->resetNumAwaitingTopologyChangesForAllSessionManagers(
+                opCtx->getServiceContext());
         }
     }
 }
@@ -5794,6 +5833,10 @@ void ReplicationCoordinatorImpl::_setStableTimestampForStorage(WithLock lk) {
 }
 
 void ReplicationCoordinatorImpl::finishRecoveryIfEligible(OperationContext* opCtx) {
+    if (MONGO_unlikely(hangBeforeFinishRecovery.shouldFail())) {
+        hangBeforeFinishRecovery.pauseWhileSet(opCtx);
+    }
+
     // Check to see if we can immediately return without taking any locks.
     if (isInPrimaryOrSecondaryState_UNSAFE()) {
         return;

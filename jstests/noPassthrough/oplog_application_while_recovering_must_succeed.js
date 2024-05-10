@@ -44,6 +44,13 @@ function runTest(op, result) {
                 ts: oplogToInsertTS
             });
         } else if (op === "Insert") {
+            // If a recordId is present in the insert oplog entry, this means that
+            // recordIdsReplicated:true for the collection. Therefore, in constructing a new oplog
+            // entry, we need to ensure that we don't reuse the recordId that a previous insert has
+            // used already.
+            if (testCollOplogEntry.rid) {
+                testCollOplogEntry.rid++;
+            }
             return Object.extend(
                 testCollOplogEntry,
                 {op: "i", ns: "test.coll", o: {_id: 1, a: 1}, ts: oplogToInsertTS});

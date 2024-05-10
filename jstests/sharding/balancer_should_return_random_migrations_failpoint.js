@@ -6,6 +6,7 @@
  * ]
  */
 
+import {FeatureFlagUtil} from "jstests/libs/feature_flag_util.js"
 import {findChunksUtil} from "jstests/sharding/libs/find_chunks_util.js";
 
 // TODO SERVER-89399: re-enable the hook once it properly serialize with resharding operations
@@ -31,6 +32,10 @@ const dbNames = ["db0", "db1"];
 const numDocuments = 25;
 const timeFieldName = 'time';
 
+// TODO SERVER-84744 remove the feature flag
+const isReshardingForTimeseriesEnabled =
+    FeatureFlagUtil.isPresentAndEnabled(st.shard0.getDB('admin'), 'ReshardingForTimeseries');
+
 // Setup collections
 {
     for (const dbName of dbNames) {
@@ -46,9 +51,13 @@ const timeFieldName = 'time';
         // Create sharded collection
         st.adminCommand({shardCollection: `${dbName}.sharded`, key: {x: 1}});
 
-        // Create timeseries collection
-        assert.commandWorked(
-            db.createCollection('timeseries', {timeseries: {timeField: timeFieldName}}));
+        // TODO (SERVER-88852): Create the timeseries collection regardless of the feature flag
+        // status.
+        if (isReshardingForTimeseriesEnabled) {
+            // Create timeseries collection
+            assert.commandWorked(
+                db.createCollection('timeseries', {timeseries: {timeField: timeFieldName}}));
+        }
 
         // Create view
         assert.commandWorked(db.createCollection('view', {viewOn: 'unsharded'}));
@@ -72,8 +81,12 @@ function getDataShard(nss) {
 // Map: namespace -> shardId
 let initialPlacements = {};
 
-// TODO SERVER-83878 add 'system.buckets.timeseries' to the list of trackable collections
-const trackableCollections = ['unsharded'];
+let trackableCollections = ['unsharded'];
+
+if (isReshardingForTimeseriesEnabled) {
+    trackableCollections.push('system.buckets.timeseries');
+}
+
 for (const dbName of dbNames) {
     for (const collName of trackableCollections) {
         const fullName = `${dbName}.${collName}`;
