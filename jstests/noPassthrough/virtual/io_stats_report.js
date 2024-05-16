@@ -47,7 +47,10 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
         "invalidOid": NumberLong(5),
         "invalidBoolean": NumberLong(4),
         "metadataAndDataDifferentLength": NumberLong(1),
-        "totalErrorCount": NumberLong(28)
+        "totalErrorCount": NumberLong(28),
+        "inputSize": NumberLong(764),
+        "outputSize": NumberLong(1036),
+        "bsonsReturned": NumberLong(9)
     };
     const res = coll.explain("executionStats")
                     .find({"number": {$gte: 30}}, {kString: 1, number: 1, identifier: 1, signOn: 1})
@@ -88,7 +91,10 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
         "invalidOid": NumberLong(8),
         "invalidBoolean": NumberLong(9),
         "metadataAndDataDifferentLength": NumberLong(5),
-        "totalErrorCount": NumberLong(59)
+        "totalErrorCount": NumberLong(59),
+        "inputSize": NumberLong(1339),
+        "outputSize": NumberLong(1919),
+        "bsonsReturned": NumberLong(18)
     };
 
     const res = coll.explain("executionStats").find().finish();
@@ -133,7 +139,10 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
             "invalidOid": NumberLong(5),
             "invalidBoolean": NumberLong(4),
             "metadataAndDataDifferentLength": NumberLong(1),
-            "totalErrorCount": NumberLong(28)
+            "totalErrorCount": NumberLong(28),
+            "inputSize": NumberLong(764),
+            "outputSize": NumberLong(1036),
+            "bsonsReturned": NumberLong(9)
         }
     };
 
@@ -194,7 +203,10 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
             "invalidOid": NumberLong(8),
             "invalidBoolean": NumberLong(9),
             "metadataAndDataDifferentLength": NumberLong(5),
-            "totalErrorCount": NumberLong(59)
+            "totalErrorCount": NumberLong(59),
+            "inputSize": NumberLong(1339),
+            "outputSize": NumberLong(1919),
+            "bsonsReturned": NumberLong(18)
         }
     };
 

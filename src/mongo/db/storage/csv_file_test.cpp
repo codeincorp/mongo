@@ -270,11 +270,14 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     char buf[bufSize];
     int nRead = 0;
     int line = 0;
+    size_t readBytes = 0;
+
     do {
         ASSERT(input.isGood());
         ASSERT(!input.isEof());
         ASSERT(!input.isFailed());
         nRead = input.read(buf, bufSize);
+        readBytes += nRead;
 
         BSONObj obj(buf);
         if (nRead > 0) {
@@ -285,6 +288,12 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 
     input.close();
     ASSERT(!input.isOpen());
+
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
+    ASSERT_EQ(2307, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(24, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, AbsentField) {
@@ -395,13 +404,20 @@ TEST_F(CsvFileInputTest, AbsentField) {
 
     constexpr int bufSize = 250;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     for (int i = 0; i < 11; i++) {
-        input.read(buf, bufSize);
+        readBytes += input.read(buf, bufSize);
         ASSERT_BSONOBJ_EQ(BSONObj(buf), expected[i]);
     }
 
     input.close();
+
+    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
+        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
+    ASSERT_EQ(618, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(11, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidOID) {
@@ -410,9 +426,10 @@ TEST_F(CsvFileInputTest, CollectInvalidOID) {
 
     constexpr int bufSize = 100;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!invalidOid.isEof()) {
-        invalidOid.read(buf, bufSize);
+        readBytes += invalidOid.read(buf, bufSize);
     }
     invalidOid.close();
 
@@ -423,6 +440,9 @@ TEST_F(CsvFileInputTest, CollectInvalidOID) {
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 14);
     ASSERT_EQ(csvFileIoStats->_invalidDate, 14);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 41);
+    ASSERT_EQ(721, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(14, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidInt32) {
@@ -431,9 +451,10 @@ TEST_F(CsvFileInputTest, CollectInvalidInt32) {
 
     constexpr int bufSize = 25;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!invalidInt32.isEof()) {
-        invalidInt32.read(buf, bufSize);
+        readBytes += invalidInt32.read(buf, bufSize);
     }
     invalidInt32.close();
 
@@ -441,6 +462,9 @@ TEST_F(CsvFileInputTest, CollectInvalidInt32) {
         dynamic_cast<CsvFileIoStats*>(invalidInt32.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 6);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 6);
+    ASSERT_EQ(90, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(6, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidDate) {
@@ -449,9 +473,10 @@ TEST_F(CsvFileInputTest, CollectInvalidDate) {
 
     constexpr int bufSize = 100;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!invalidDate.isEof()) {
-        invalidDate.read(buf, bufSize);
+        readBytes += invalidDate.read(buf, bufSize);
     }
     invalidDate.close();
 
@@ -459,6 +484,9 @@ TEST_F(CsvFileInputTest, CollectInvalidDate) {
         dynamic_cast<CsvFileIoStats*>(invalidDate.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidDate, 4);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 4);
+    ASSERT_EQ(58, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(4, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidInt64) {
@@ -467,9 +495,10 @@ TEST_F(CsvFileInputTest, CollectInvalidInt64) {
 
     constexpr int bufSize = 100;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!invalidInt64.isEof()) {
-        invalidInt64.read(buf, bufSize);
+        readBytes += invalidInt64.read(buf, bufSize);
     }
     invalidInt64.close();
 
@@ -477,6 +506,9 @@ TEST_F(CsvFileInputTest, CollectInvalidInt64) {
         dynamic_cast<CsvFileIoStats*>(invalidInt64.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidInt64, 5);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 5);
+    ASSERT_EQ(48, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(5, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidBoolean) {
@@ -485,9 +517,10 @@ TEST_F(CsvFileInputTest, CollectInvalidBoolean) {
 
     constexpr int bufSize = 100;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!invalidBoolean.isEof()) {
-        invalidBoolean.read(buf, bufSize);
+        readBytes += invalidBoolean.read(buf, bufSize);
     }
     invalidBoolean.close();
 
@@ -495,6 +528,9 @@ TEST_F(CsvFileInputTest, CollectInvalidBoolean) {
         dynamic_cast<CsvFileIoStats*>(invalidBoolean.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidBoolean, 11);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 11);
+    ASSERT_EQ(73, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(11, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidDouble) {
@@ -503,9 +539,10 @@ TEST_F(CsvFileInputTest, CollectInvalidDouble) {
 
     constexpr int bufSize = 100;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!invalidDouble.isEof()) {
-        invalidDouble.read(buf, bufSize);
+        readBytes += invalidDouble.read(buf, bufSize);
     }
     invalidDouble.close();
 
@@ -513,6 +550,9 @@ TEST_F(CsvFileInputTest, CollectInvalidDouble) {
         dynamic_cast<CsvFileIoStats*>(invalidDouble.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidDouble, 4);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 4);
+    ASSERT_EQ(59, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(4, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectOutOfRange) {
@@ -521,9 +561,10 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
 
     constexpr int bufSize = 100;
     char buf[bufSize];
+    size_t readBytes = 0;
 
     while (!int32OutOfRange.isEof()) {
-        int32OutOfRange.read(buf, bufSize);
+        readBytes += int32OutOfRange.read(buf, bufSize);
     }
     int32OutOfRange.close();
 
@@ -531,12 +572,16 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
         dynamic_cast<CsvFileIoStats*>(int32OutOfRange.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_outOfRange, 6);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 6);
+    ASSERT_EQ(69, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(6, csvFileIoStats->_bsonsReturned);
 
     CsvFileInput int64OutOfRange("csv_test/longOutOfRange.csv", "csv_test/longOutOfRange.txt");
     int64OutOfRange.open();
+    size_t readBytes2 = 0;
 
     while (!int64OutOfRange.isEof()) {
-        int64OutOfRange.read(buf, bufSize);
+        readBytes2 += int64OutOfRange.read(buf, bufSize);
     }
     int64OutOfRange.close();
 
@@ -544,6 +589,9 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
         dynamic_cast<CsvFileIoStats*>(int64OutOfRange.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats2->_outOfRange, 8);
     ASSERT_EQ(csvFileIoStats2->_totalErrorCount, 8);
+    ASSERT_EQ(184, csvFileIoStats2->_inputSize);
+    ASSERT_EQ(readBytes2, csvFileIoStats2->_outputSize);
+    ASSERT_EQ(8, csvFileIoStats2->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
@@ -681,8 +729,10 @@ TEST_F(CsvFileInputTest, ErrorCount) {
 
     constexpr int bufSize = 200;
     char buf[bufSize];
+    size_t readBytes = 0;
+
     for (const BSONObj& expect : expected) {
-        input.read(buf, bufSize);
+        readBytes += input.read(buf, bufSize);
         ASSERT_BSONOBJ_EQ(BSONObj(buf), expect);
     }
 
@@ -698,6 +748,9 @@ TEST_F(CsvFileInputTest, ErrorCount) {
     ASSERT_EQ(csvFileIoStats->_invalidBoolean, 4);
     ASSERT_EQ(csvFileIoStats->_nonCompliantWithMetadata, 1);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 28);
+    ASSERT_EQ(764, csvFileIoStats->_inputSize);
+    ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
+    ASSERT_EQ(9, csvFileIoStats->_bsonsReturned);
 
     input.close();
 }

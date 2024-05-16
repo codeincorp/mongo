@@ -27,8 +27,12 @@
  *    it in the license file.
  */
 
+/**
+ * This benchmark measures the performance of CsvFileInput when it is readinf from a big csv file.
+ */
 #include <benchmark/benchmark.h>
 #include <filesystem>
+#include <sstream>
 #include <string>
 
 #include "csv_file.h"
@@ -38,36 +42,65 @@ namespace fs = std::filesystem;
 namespace mongo {
 namespace {
 
-void readCsv(CsvFileInput& input) {
+void readCsv(CsvFileInput& input, size_t& totalBytes) {
+    input.open();
+
     constexpr int bufSize = 1000;
     char buf[bufSize];
     while (!input.isEof()) {
-        input.read(buf, bufSize);
+        totalBytes += input.read(buf, bufSize);
     }
 
     input.close();
+}
+
+std::string resultStats(std::unique_ptr<IoStats> errorCount) {
+    auto csvIoStats = dynamic_cast<CsvFileIoStats*>(errorCount.get());
+
+    std::stringstream sstrm;
+    sstrm << "incompleteConversionToNumeric: "
+          << std::to_string(csvIoStats->_incompleteConversionToNumeric) << '\n';
+    sstrm << "invalidInt32: " << std::to_string(csvIoStats->_invalidInt32) << '\n';
+    sstrm << "invalidInt64: " << std::to_string(csvIoStats->_invalidInt64) << '\n';
+    sstrm << "invalidDouble: " << std::to_string(csvIoStats->_invalidDouble) << '\n';
+    sstrm << "outOfRange: " << std::to_string(csvIoStats->_outOfRange) << '\n';
+    sstrm << "invalidDate: " << std::to_string(csvIoStats->_invalidDate) << '\n';
+    sstrm << "invalidOid: " << std::to_string(csvIoStats->_invalidOid) << '\n';
+    sstrm << "invalidBoolean: " << std::to_string(csvIoStats->_invalidBoolean) << '\n';
+    sstrm << "metadataAndDataDifferentLength: "
+          << std::to_string(csvIoStats->_nonCompliantWithMetadata) << '\n';
+    sstrm << "totalErrorCount: " << std::to_string(csvIoStats->_totalErrorCount) << '\n';
+
+    sstrm << "inputSize : " << std::to_string(csvIoStats->_inputSize) << '\n';
+    sstrm << "outputSize : " << std::to_string(csvIoStats->_outputSize) << '\n';
+    sstrm << "bsonsReturned : " << std::to_string(csvIoStats->_bsonsReturned) << '\n';
+
+    return sstrm.str();
 }
 
 void BM_2MillionRecords(benchmark::State& state,
                         const std::string& csvFile,
                         const std::string& metadataFile) {
     system("src/mongo/db/storage/mv_bm_csv.sh");
-    mongo::CsvFileInput input(csvFile, metadataFile);
-    input.open();
+    CsvFileInput input(csvFile, metadataFile);
+    size_t totalBytes = 0;
 
     for (auto _ : state) {
-        readCsv(input);
+        readCsv(input, totalBytes);
     }
 
+    std::cout << resultStats(input.releaseIoStats()) << std::endl;
+
     fs::path file = "/tmp/" + csvFile;
-    uint64_t totalBytes = fs::file_size(file);
+    uint64_t fileSize = fs::file_size(file);
+    std::unique_ptr<CsvFileIoStats> ioStats(
+        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().get()));
 
-    auto errorCount = input.releaseIoStats();
-    BSONObjBuilder builder;
-    errorCount->appendTo(builder);
-    std::cout << builder.done().toString() << std::endl;
-
-    state.SetBytesProcessed(totalBytes);
+    state.counters["File_Size"] = fileSize;
+    state.counters["BSON_Size"] = totalBytes;
+    state.counters["BSON_size_per_second"] =
+        benchmark::Counter(totalBytes, benchmark::Counter::kIsRate);
+    state.SetBytesProcessed(fileSize);
 }
 
 BENCHMARK_CAPTURE(BM_2MillionRecords, 2million customers, "customers-2000000.csv", "customers.txt");

@@ -1,5 +1,33 @@
 #!/bin/sh
 
+#    Copyright (C) 2024-present Codein, Inc.
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the Server Side Public License, version 1,
+#    as published by MongoDB, Inc.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    Server Side Public License for more details.
+#
+#    You should have received a copy of the Server Side Public License
+#    along with this program. If not, see
+#    <http://www.mongodb.com/licensing/server-side-public-license>.
+#
+#    As a special exception, the copyright holders give permission to link the
+#    code of portions of this program with the OpenSSL library under certain
+#    conditions as described in each individual source file and distribute
+#    linked combinations including the program with the OpenSSL library. You
+#    must comply with the Server Side Public License in all respects for
+#    all of the code used other than as permitted herein. If you modify file(s)
+#    with this exception, you may extend this exception to your version of the
+#    file(s), but you are not obligated to do so. If you do not wish to do so,
+#    delete this exception statement from your version. If you delete this
+#    exception statement from all source files in the program, then also delete
+#    it in the license file.
+#
+
 # customers-2000000
 if ! test -f /tmp/customers-2000000.zip; then
     wget -O /tmp/customers-2000000.zip "https://drive.usercontent.google.com/download?id=1IXQDp8Um3d-o7ysZLxkDyuvFj9gtlxqz&export=download&authuser=0
@@ -19,17 +47,23 @@ https://drive.usercontent.google.com/download?id=18vlOi20KcMR328ewc2NBsoBNPrV3vL
 fi
 
 if ! test -f /tmp/customers-2000000.csv; then
-    tar -xzvf /tmp/customers-2000000.zip -C /tmp/
+    7z x /tmp/customers-2000000.zip -o/tmp/ -y
+    tail -n +2 /tmp/customers-2000000.csv > /tmp/tempCsv.csv
+    mv /tmp/tempCsv.csv /tmp/customers-2000000.csv
     echo "Index/int32,Customer Id/string,First Name/string,Last Name/string,Company/string,City/string,Country/string,Phone 1/string,Phone 2/string,Email/string,Subscription Date/string,Website/string" > /tmp/customers.txt
 fi
 
 if ! test -f /tmp/people-2000000.csv; then
-    tar -xzvf /tmp/people-2000000.zip -C /tmp/
+    7z x /tmp/people-2000000.zip -o/tmp/ -y
+    tail -n +2 /tmp/people-2000000.csv > /tmp/tempCsv.csv
+    mv /tmp/tempCsv.csv /tmp/people-2000000.csv
     echo 'Index/int32,User Id/string,First Name/string,Last Name/string,Sex/string,Email/string,Phone/string,Date of birth/string,Job Title/string' > /tmp/people.txt
 
 fi
- 
+
 if ! test -f /tmp/organizations-2000000.csv; then
-    tar -xzvf /tmp/organizations-2000000.zip -C /tmp/
+    7z x /tmp/organizations-2000000.zip -o/tmp/ -y
+    tail -n +2 /tmp/organizations-2000000.csv > /tmp/tempCsv.csv
+    mv /tmp/tempCsv.csv /tmp/organizations-2000000.csv
     echo 'Index/int32,Organization Id/string,Name/string,Website/string,Country/string,Description/string,Founded/string,Industry/string,Number of employees/int32' > /tmp/organizations.txt
 fi
