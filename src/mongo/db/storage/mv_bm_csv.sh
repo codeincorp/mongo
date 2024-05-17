@@ -64,6 +64,8 @@ fi
 if ! test -f /tmp/organizations-2000000.csv; then
     7z x /tmp/organizations-2000000.zip -o/tmp/ -y
     tail -n +2 /tmp/organizations-2000000.csv > /tmp/tempCsv.csv
-    mv /tmp/tempCsv.csv /tmp/organizations-2000000.csv
+    sed 's/\r//g' /tmp/tempCsv.csv > /tmp/temp.csv
+    mv /tmp/temp.csv /tmp/organizations-2000000.csv
+    rm /tmp/temp.csv
     echo 'Index/int32,Organization Id/string,Name/string,Website/string,Country/string,Description/string,Founded/string,Industry/string,Number of employees/int32' > /tmp/organizations.txt
 fi

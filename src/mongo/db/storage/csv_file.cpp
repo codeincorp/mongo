@@ -96,6 +96,7 @@ int CsvFileInput::doRead(char* data, int size) {
         return 0;
     }
 
+    _ioStats->_bsonsReturned++;
     int nRead = bsonObj->objsize();
     tassert(200000402,
             "Buff Size {} bytes is too small to contain {} bytes bsonObj"_format(size, nRead),
@@ -335,7 +336,6 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     }
 
     _ioStats->_inputSize += record.size();
-    _ioStats->_bsonsReturned++;
     auto data = parseLine(record);
 
     // If data and metadata have different number of fields, process as many fields as possible.

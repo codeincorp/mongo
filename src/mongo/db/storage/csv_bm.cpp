@@ -28,7 +28,7 @@
  */
 
 /**
- * This benchmark measures the performance of CsvFileInput when it is readinf from a big csv file.
+ * This benchmark measures the performance of CsvFileInput when it reads a big csv file.
  */
 #include <benchmark/benchmark.h>
 #include <filesystem>
@@ -54,26 +54,23 @@ void readCsv(CsvFileInput& input, size_t& totalBytes) {
     input.close();
 }
 
-std::string resultStats(std::unique_ptr<IoStats> errorCount) {
-    auto csvIoStats = dynamic_cast<CsvFileIoStats*>(errorCount.get());
+std::string resultStats(const CsvFileIoStats* csvIoStats) {
 
     std::stringstream sstrm;
-    sstrm << "incompleteConversionToNumeric: "
-          << std::to_string(csvIoStats->_incompleteConversionToNumeric) << '\n';
-    sstrm << "invalidInt32: " << std::to_string(csvIoStats->_invalidInt32) << '\n';
-    sstrm << "invalidInt64: " << std::to_string(csvIoStats->_invalidInt64) << '\n';
-    sstrm << "invalidDouble: " << std::to_string(csvIoStats->_invalidDouble) << '\n';
-    sstrm << "outOfRange: " << std::to_string(csvIoStats->_outOfRange) << '\n';
-    sstrm << "invalidDate: " << std::to_string(csvIoStats->_invalidDate) << '\n';
-    sstrm << "invalidOid: " << std::to_string(csvIoStats->_invalidOid) << '\n';
-    sstrm << "invalidBoolean: " << std::to_string(csvIoStats->_invalidBoolean) << '\n';
-    sstrm << "metadataAndDataDifferentLength: "
-          << std::to_string(csvIoStats->_nonCompliantWithMetadata) << '\n';
-    sstrm << "totalErrorCount: " << std::to_string(csvIoStats->_totalErrorCount) << '\n';
-
-    sstrm << "inputSize : " << std::to_string(csvIoStats->_inputSize) << '\n';
-    sstrm << "outputSize : " << std::to_string(csvIoStats->_outputSize) << '\n';
-    sstrm << "bsonsReturned : " << std::to_string(csvIoStats->_bsonsReturned) << '\n';
+    sstrm << "incompleteConversionToNumeric: " << csvIoStats->_incompleteConversionToNumeric
+          << '\n';
+    sstrm << "invalidInt32: " << csvIoStats->_invalidInt32 << '\n';
+    sstrm << "invalidInt64: " << csvIoStats->_invalidInt64 << '\n';
+    sstrm << "invalidDouble: " << csvIoStats->_invalidDouble << '\n';
+    sstrm << "outOfRange: " << csvIoStats->_outOfRange << '\n';
+    sstrm << "invalidDate: " << csvIoStats->_invalidDate << '\n';
+    sstrm << "invalidOid: " << csvIoStats->_invalidOid << '\n';
+    sstrm << "invalidBoolean: " << csvIoStats->_invalidBoolean << '\n';
+    sstrm << "metadataAndDataDifferentLength: " << csvIoStats->_nonCompliantWithMetadata << '\n';
+    sstrm << "totalErrorCount: " << csvIoStats->_totalErrorCount << '\n';
+    sstrm << "inputSize : " << csvIoStats->_inputSize << '\n';
+    sstrm << "outputSize : " << csvIoStats->_outputSize << '\n';
+    sstrm << "bsonsReturned : " << csvIoStats->_bsonsReturned << '\n';
 
     return sstrm.str();
 }
@@ -89,16 +86,19 @@ void BM_2MillionRecords(benchmark::State& state,
         readCsv(input, totalBytes);
     }
 
-    std::cout << resultStats(input.releaseIoStats()) << std::endl;
+    std::unique_ptr<CsvFileIoStats> ioStats(
+        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release()));
 
+    std::cout << resultStats(ioStats.get()) << std::endl;
     fs::path file = "/tmp/" + csvFile;
     uint64_t fileSize = fs::file_size(file);
-    std::unique_ptr<CsvFileIoStats> ioStats(
-        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().get()));
 
-    state.counters["File_Size"] = fileSize;
-    state.counters["BSON_Size"] = totalBytes;
-    state.counters["BSON_size_per_second"] =
+    state.counters["input_size"] = ioStats->_inputSize;
+    state.counters["input_size_per_second"] =
+        benchmark::Counter(ioStats->_inputSize, benchmark::Counter::kIsRate);
+    state.counters["file_size"] = fileSize;
+    state.counters["bson_size"] = totalBytes;
+    state.counters["bson_size_per_second"] =
         benchmark::Counter(totalBytes, benchmark::Counter::kIsRate);
     state.SetBytesProcessed(fileSize);
 }
