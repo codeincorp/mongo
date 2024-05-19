@@ -67,6 +67,8 @@ std::string resultStats(const CsvFileIoStats* csvIoStats) {
     sstrm << "invalidOid: " << csvIoStats->_invalidOid << '\n';
     sstrm << "invalidBoolean: " << csvIoStats->_invalidBoolean << '\n';
     sstrm << "metadataAndDataDifferentLength: " << csvIoStats->_nonCompliantWithMetadata << '\n';
+    sstrm << "dosFmt: " << csvIoStats->_dosFmt << '\n';
+    sstrm << "unixFmt: " << csvIoStats->_unixFmt << '\n';
     sstrm << "totalErrorCount: " << csvIoStats->_totalErrorCount << '\n';
     sstrm << "inputSize : " << csvIoStats->_inputSize << '\n';
     sstrm << "outputSize : " << csvIoStats->_outputSize << '\n';

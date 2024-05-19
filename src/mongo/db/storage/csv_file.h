@@ -90,7 +90,9 @@ private:
      * @return: vector of FieldInfo containing fieldName(as std::string) and typeInfo(as
      *     CsvFieldType) of the said field. {{"fieldName1",type1},{"fieldName2",type2}...}.
      */
-    Metadata getMetadata(const std::vector<std::string>& header);
+    Metadata getMetadata(const std::vector<std::string_view>& header);
+
+    std::string_view getLine();
 
     /**
      * Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each
@@ -99,10 +101,12 @@ private:
      * @param line read from csv, "data1,data2,data3..."
      * @return: vector containing each field as string, {"data1","data2","data3"...}.
      */
-    std::vector<std::string> parseLine(const std::string& line);
+    std::vector<std::string_view> parseLine(const std::string_view& line);
 
     template <CsvFieldType T>
-    void appendTo(BSONObjBuilder& builder, const std::string& fieldName, const std::string& data);
+    void appendTo(BSONObjBuilder& builder,
+                  const std::string& fieldName,
+                  const std::string_view& field);
 
     // Reads each line from the CSV file and converts it into a BSONObj, being compliant with the
     // metadata. It will return boost::none if there is no more line to read in the csv file.
@@ -110,7 +114,10 @@ private:
 
     std::string _fileAbsolutePath;
     std::string _metadataAbsolutePath;
-    std::ifstream _ifs;
+    int _fd = -1;
+    size_t _fileSize = 0;
+    const char* _data = nullptr;
+    size_t _offset = 0;
     Metadata _metadata;
     std::unique_ptr<CsvFileIoStats> _ioStats;
 };
