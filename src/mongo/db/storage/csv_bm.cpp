@@ -55,7 +55,6 @@ void readCsv(CsvFileInput& input, size_t& totalBytes) {
 }
 
 std::string resultStats(const CsvFileIoStats* csvIoStats) {
-
     std::stringstream sstrm;
     sstrm << "incompleteConversionToNumeric: " << csvIoStats->_incompleteConversionToNumeric
           << '\n';
@@ -67,6 +66,8 @@ std::string resultStats(const CsvFileIoStats* csvIoStats) {
     sstrm << "invalidOid: " << csvIoStats->_invalidOid << '\n';
     sstrm << "invalidBoolean: " << csvIoStats->_invalidBoolean << '\n';
     sstrm << "metadataAndDataDifferentLength: " << csvIoStats->_nonCompliantWithMetadata << '\n';
+    sstrm << "unixFmt: " << csvIoStats->_unixFmt << '\n';
+    sstrm << "dosFmt: " << csvIoStats->_dosFmt << '\n';
     sstrm << "totalErrorCount: " << csvIoStats->_totalErrorCount << '\n';
     sstrm << "inputSize : " << csvIoStats->_inputSize << '\n';
     sstrm << "outputSize : " << csvIoStats->_outputSize << '\n';
@@ -78,7 +79,11 @@ std::string resultStats(const CsvFileIoStats* csvIoStats) {
 void BM_2MillionRecords(benchmark::State& state,
                         const std::string& csvFile,
                         const std::string& metadataFile) {
+    using namespace fmt::literals;
+
     system("src/mongo/db/storage/mv_bm_csv.sh");
+    std::cerr << "\nStarted benchmark for {}\n\n"_format(csvFile);
+
     CsvFileInput input(csvFile, metadataFile);
     size_t totalBytes = 0;
 
@@ -101,6 +106,8 @@ void BM_2MillionRecords(benchmark::State& state,
     state.counters["bson_size_per_second"] =
         benchmark::Counter(totalBytes, benchmark::Counter::kIsRate);
     state.SetBytesProcessed(fileSize);
+
+    std::cerr << "Benchmark done for {}\n"_format(csvFile);
 }
 
 BENCHMARK_CAPTURE(BM_2MillionRecords, 2million customers, "customers-2000000.csv", "customers.txt");

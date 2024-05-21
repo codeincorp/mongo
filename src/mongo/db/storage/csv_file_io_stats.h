@@ -49,6 +49,8 @@ struct CsvFileIoStats : public IoStats {
     int64_t _invalidOid = 0;
     int64_t _invalidBoolean = 0;
     int64_t _nonCompliantWithMetadata = 0;
+    int64_t _unixFmt = 0;
+    int64_t _dosFmt = 0;
     int64_t _totalErrorCount = 0;
     int64_t _inputSize = 0;
     int64_t _outputSize = 0;  // actually processed bytes
@@ -80,6 +82,8 @@ struct CsvFileIoStats : public IoStats {
         sub.append("invalidOid", _invalidOid);
         sub.append("invalidBoolean", _invalidBoolean);
         sub.append("metadataAndDataDifferentLength", _nonCompliantWithMetadata);
+        sub.append("unixFormat", _unixFmt);
+        sub.append("dosFormat", _dosFmt);
         sub.append("totalErrorCount", _totalErrorCount);
         sub.append("inputSize", _inputSize);
         sub.append("outputSize", _outputSize);
@@ -103,6 +107,8 @@ struct CsvFileIoStats : public IoStats {
         _invalidOid += other._invalidOid;
         _outOfRange += other._outOfRange;
         _nonCompliantWithMetadata += other._nonCompliantWithMetadata;
+        _unixFmt += other._unixFmt;
+        _dosFmt += other._dosFmt;
         _totalErrorCount += other._totalErrorCount;
         _inputSize += other._inputSize;
         _outputSize += other._outputSize;
@@ -153,6 +159,16 @@ struct CsvFileIoStats : public IoStats {
     void incOutOfRange() {
         _outOfRange++;
         _totalErrorCount++;
+    }
+
+    void incUnixFmt() {
+        // A line in the Unix format is not an error.
+        _unixFmt++;
+    }
+
+    void incDosFmt() {
+        // A line in the DOS format is not an error.
+        _dosFmt++;
     }
 };
 }  // namespace mongo
