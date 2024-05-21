@@ -30,6 +30,7 @@
 #include "mongo/db/storage/csv_file.h"
 
 #include <charconv>
+#include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
 #include <fmt/format.h>
@@ -94,7 +95,7 @@ void CsvFileInput::doOpen() {
     fs::path file = _fileAbsolutePath;
     _fileSize = fs::file_size(file);
 
-    _data = (const char*)mmap(nullptr, _fileSize, PROT_READ, MAP_SHARED, _fd, 0);
+    _data = (const char*)mmap(nullptr, _fileSize, PROT_READ, MAP_PRIVATE, _fd, 0);
     uassert(ErrorCodes::FileNotOpen,
             "error = {}"_format(getErrorMessage("mmap", _fileAbsolutePath)),
             _data != MAP_FAILED);
@@ -223,6 +224,20 @@ template <>
 void CsvFileInput::appendTo<CsvFieldType::kDouble>(BSONObjBuilder& builder,
                                                    const std::string& fieldName,
                                                    const std::string_view& field) {
+#ifdef __APPLE__
+    double converted;
+    try {
+        converted = stod(std::string{field});
+    } catch (const std::invalid_argument&) {
+        _ioStats->incInvalidDouble();
+        builder.appendNull(fieldName);
+        return;
+    } catch (const std::out_of_range&) {
+        _ioStats->incOutOfRange();
+        builder.appendNull(fieldName);
+        return;
+    }
+#else
     double converted;
     auto res = std::from_chars(field.begin(), field.end(), converted);
     if (res.ec == std::errc::invalid_argument) {
@@ -235,6 +250,7 @@ void CsvFileInput::appendTo<CsvFieldType::kDouble>(BSONObjBuilder& builder,
         builder.appendNull(fieldName);
         return;
     }
+#endif
 
     builder.append(fieldName, converted);
 }
