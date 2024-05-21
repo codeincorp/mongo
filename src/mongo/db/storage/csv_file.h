@@ -116,7 +116,9 @@ private:
     std::string _metadataAbsolutePath;
     int _fd = -1;
     size_t _fileSize = 0;
+    // The pointer to file data which the file is mapped to.
     const char* _data = nullptr;
+    // The position to read next.
     size_t _offset = 0;
     Metadata _metadata;
     std::unique_ptr<CsvFileIoStats> _ioStats;
