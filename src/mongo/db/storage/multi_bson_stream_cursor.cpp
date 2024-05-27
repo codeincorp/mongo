@@ -198,7 +198,15 @@ std::unique_ptr<InputStream> MultiBsonStreamCursor::getInputStream() {
         return std::make_unique<InputStreamImpl<NamedPipeInput>>(filePathStr);
     } else if (dataSource.getStorageType() == StorageTypeEnum::file &&
                dataSource.getFileType() == FileTypeEnum::csv) {
-        uassert(200000600, "Metadata URL is required for CSV file", _vopts.getMetadataUrl());
+        uassert(200000600,
+                "Metadata is required for CSV file",
+                _vopts.getMetadata() || _vopts.getMetadataUrl());
+
+        if (_vopts.getMetadata()) {
+            return std::make_unique<InputStreamImpl<CsvFileInput>>(filePathStr,
+                                                                   *_vopts.getMetadata());
+        }
+
         auto metadataPath = getPath(_vopts.getMetadataUrl()->toString());
         return std::make_unique<InputStreamImpl<CsvFileInput>>(filePathStr, metadataPath);
     } else {

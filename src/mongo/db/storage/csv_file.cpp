@@ -55,19 +55,25 @@ namespace mongo {
 
 using namespace fmt::literals;
 
-CsvFileInput::CsvFileInput(const std::string& fileRelativePath,
-                           const std::string& metadataRelativePath)
+CsvFileInput::CsvFileInput(const std::string& fileRelativePath, BSONObj metadataObj)
     : _fileAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
                         fileRelativePath),
-      _metadataAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
-                            metadataRelativePath),
+      _metadata(getMetadata(metadataObj.getOwned())),
       _ioStats(std::make_unique<CsvFileIoStats>()) {
     uassert(200000400,
             "File path must not include '..' but {} does"_format(_fileAbsolutePath),
             _fileAbsolutePath.find("..") == std::string::npos);
-    uassert(200000401,
-            "File path must not include '..' but {} does"_format(_metadataAbsolutePath),
-            _metadataAbsolutePath.find("..") == std::string::npos);
+}
+
+CsvFileInput::CsvFileInput(const std::string& fileRelativePath,
+                           const std::string& metadataRelativePath)
+    : _fileAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
+                        fileRelativePath),
+      _metadata(getMetadata(metadataRelativePath)),
+      _ioStats(std::make_unique<CsvFileIoStats>()) {
+    uassert(200003500,
+            "File path must not include '..' but {} does"_format(_fileAbsolutePath),
+            _fileAbsolutePath.find("..") == std::string::npos);
 }
 
 CsvFileInput::~CsvFileInput() {
@@ -76,17 +82,6 @@ CsvFileInput::~CsvFileInput() {
 
 void CsvFileInput::doOpen() {
     namespace fs = std::filesystem;
-
-    std::string metadata;
-    std::ifstream ifsMetadata(_metadataAbsolutePath.c_str(), std::ios::in);
-    uassert(ErrorCodes::FileNotOpen,
-            "error = {}: "_format(getErrorMessage("open", _metadataAbsolutePath)),
-            ifsMetadata.is_open());
-    std::getline(ifsMetadata, metadata);
-
-    _metadata = getMetadata(parseLine(metadata));
-    ifsMetadata.close();
-
     _fd = ::open(_fileAbsolutePath.c_str(), O_RDONLY);
     uassert(ErrorCodes::FileNotOpen,
             "error = {}"_format(getErrorMessage("open", _fileAbsolutePath)),
@@ -149,49 +144,81 @@ bool CsvFileInput::isEof() const {
     return _fd >= 0 && _offset >= _fileSize;
 }
 
+template <typename T, typename U>
+CsvFieldType fromTypeName(T fieldName, U typeName) {
+    if (typeName == "int" || typeName == "int32") {
+        return CsvFieldType::kInt32;
+    } else if (typeName == "int64" || typeName == "long") {
+        return CsvFieldType::kInt64;
+    } else if (typeName == "double") {
+        return CsvFieldType::kDouble;
+    } else if (typeName == "bool") {
+        return CsvFieldType::kBool;
+    } else if (typeName == "oid") {
+        return CsvFieldType::kOid;
+    } else if (typeName == "date") {
+        return CsvFieldType::kDate;
+    } else if (typeName == "string") {
+        return CsvFieldType::kString;
+    } else {
+        uasserted(200000404, "{} type is not supported at field: {}"_format(typeName, fieldName));
+    }
+}
+
 // Assuming that header is returned by parseLine, which means, each of its element contains name of
 // the field with its typeInfo as string. {"fieldName1/typeName1","fieldName/typeName1"...}
-Metadata CsvFileInput::getMetadata(const std::vector<std::string_view>& header) {
+Metadata CsvFileInput::getMetadata(const std::string& metadataRelativePath) {
+    auto metadataAbsolutePath((externalFileDir == "" ? kDefaultFilePath : externalFileDir) +
+                              metadataRelativePath);
+    uassert(200000401,
+            "File path must not include '..' but {} does"_format(metadataAbsolutePath),
+            metadataAbsolutePath.find("..") == std::string::npos);
+
+    std::ifstream ifsMetadata(metadataAbsolutePath.c_str(), std::ios::in);
+    uassert(ErrorCodes::FileNotOpen,
+            "error = {}: "_format(getErrorMessage("open", metadataAbsolutePath)),
+            ifsMetadata.is_open());
+    std::string metadata;
+    std::getline(ifsMetadata, metadata);
+    ifsMetadata.close();
+
     constexpr size_t typeNameAbsent = 0;
     Metadata ret;
 
     size_t fieldIndex = 0;
-    for (const auto& field : header) {
+    for (const auto& field : parseLine(metadata)) {
         // Throws an exception when field does not contain '/' at all or typename is absent after
         // '/'.
         size_t separatorIndex = field.find('/');
         size_t fieldLen = separatorIndex != std::string::npos ? field.length() - separatorIndex - 1
                                                               : typeNameAbsent;
         uassert(200000403,
-                "{}th Field '{}' does not specify typeName."_format(field, fieldIndex),
+                "{}th Field '{}' does not specify typeName."_format(fieldIndex, field),
                 fieldLen > typeNameAbsent);
 
         auto fieldName = field.substr(0, separatorIndex);
         auto typeName = field.substr(separatorIndex + 1, fieldLen);
-        CsvFieldType fieldType;
-
-        if (typeName == "int" || typeName == "int32") {
-            fieldType = CsvFieldType::kInt32;
-        } else if (typeName == "int64" || typeName == "long") {
-            fieldType = CsvFieldType::kInt64;
-        } else if (typeName == "double") {
-            fieldType = CsvFieldType::kDouble;
-        } else if (typeName == "bool") {
-            fieldType = CsvFieldType::kBool;
-        } else if (typeName == "oid") {
-            fieldType = CsvFieldType::kOid;
-        } else if (typeName == "date") {
-            fieldType = CsvFieldType::kDate;
-        } else if (typeName == "string") {
-            fieldType = CsvFieldType::kString;
-        } else {
-            uasserted(200000404,
-                      "{} type is not supported at {}th field: {}"_format(
-                          typeName, fieldIndex, fieldName));
-        }
+        auto fieldType = fromTypeName(fieldName, typeName);
 
         ret.push_back({std::string{fieldName}, fieldType});
         fieldIndex++;
+    }
+
+    return ret;
+}
+
+Metadata CsvFileInput::getMetadata(BSONObj metadataObj) {
+    Metadata ret;
+
+    for (auto&& elem : metadataObj) {
+        auto fieldName = elem.fieldName();
+        uassert(200003501,
+                "Expected a string for {} but got {}"_format(fieldName, typeName(elem.type())),
+                elem.type() == BSONType::String);
+        auto typeName = elem.valueStringData();
+        auto fieldType = fromTypeName(fieldName, typeName);
+
+        ret.push_back({std::string{fieldName}, fieldType});
     }
 
     return ret;

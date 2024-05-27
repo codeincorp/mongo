@@ -98,6 +98,11 @@ structs:
                 type: string
                 optional: true
                 stability: unstable
+            metadata:
+                description: "Metadata on an external collection in the form of fieldName: type"
+                type: object
+                optional: true
+                stability: unstable
             strict:
                 description:
                     "Flag to indicate whether the external collection must follow the schema strictly"

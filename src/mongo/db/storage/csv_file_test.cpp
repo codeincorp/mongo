@@ -33,161 +33,161 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 })"),
         fromjson(R"(
 {
-    field1: 13, 
-    boolean: true, 
-    decimal: 1.2, 
-    textField: "Plummer", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 13,
+    boolean: true,
+    decimal: 1.2,
+    textField: "Plummer",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"2017-08-06T13:13:59.010+07:00"},
     billionaire: 120000000000
 })"),
         fromjson(R"(
 {
-    field1: 14, 
-    boolean: false, 
-    decimal: 5.5, 
-    textField: "Chair", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 14,
+    boolean: false,
+    decimal: 5.5,
+    textField: "Chair",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment: {$date:"2019-10-23T21:42:14.144Z"},
     billionaire: 135000000000
 })"),
         fromjson(R"(
 {
-    field1: 16, 
-    boolean: true, 
-    decimal: 6.6, 
-    textField: "Bottle", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 16,
+    boolean: true,
+    decimal: 6.6,
+    textField: "Bottle",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment: {$date:"2016-11-11T01:16:23.543Z"},
     billionaire: 2000000000000
 })"),
         fromjson(R"(
 {
-    field1: 21, 
-    boolean: false, 
-    decimal: 0.9, 
-    textField: "Tesla", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 21,
+    boolean: false,
+    decimal: 0.9,
+    textField: "Tesla",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"2017-10-31T08:23:49.982Z"},
     billionaire: 100000000000000
 })"),
         fromjson(R"(
 {
-    field1: 15, 
-    boolean: true, 
-    decimal: 3.3, 
-    textField: "Notebook", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 15,
+    boolean: true,
+    decimal: 3.3,
+    textField: "Notebook",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment: {$date:"2012-12-23T23:59:54.932Z"},
     billionaire: 53000000000
 })"),
         fromjson(R"(
 {
-    field1: 18, 
-    boolean: true, 
-    decimal: 9.1, 
-    textField: "JSON", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 18,
+    boolean: true,
+    decimal: 9.1,
+    textField: "JSON",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"1999-04-25T09:37:09.883Z"},
     billionaire: 9000000000
 })"),
         fromjson(R"(
 {
-    field1: 21, 
-    boolean: false, 
-    decimal: 3.98, 
-    textField: "BSON", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 21,
+    boolean: false,
+    decimal: 3.98,
+    textField: "BSON",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"1970-03-28T07:34:42.390Z"},
     billionaire: 70000000000
 })"),
         fromjson(R"(
-{ 
-    field1: 31, 
-    boolean: true, 
-    decimal: 2.09, 
-    textField: "Testosterone", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+{
+    field1: 31,
+    boolean: true,
+    decimal: 2.09,
+    textField: "Testosterone",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment: {$date:"2024-03-23T21:21:55.559Z"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 27, 
-    boolean: false, 
-    decimal: 12.34, 
-    textField: "Chipmunk", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 27,
+    boolean: false,
+    decimal: 12.34,
+    textField: "Chipmunk",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"2023-12-30T12:12:14.645Z"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 41, 
-    boolean: false, 
-    decimal: 91.2, 
-    textField: "Table", 
-    docIdentifier: ObjectId("66075df233ce5deb424257fb"), 
+    field1: 41,
+    boolean: false,
+    decimal: 91.2,
+    textField: "Table",
+    docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"2020-08-23T13:17:39.345Z"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 52, 
-    boolean: false, 
-    decimal: 93.2, 
-    textField: "Bravo", 
-    docIdentifier: ObjectId("660a04700ea7913a8fced3f4"), 
+    field1: 52,
+    boolean: false,
+    decimal: 93.2,
+    textField: "Bravo",
+    docIdentifier: ObjectId("660a04700ea7913a8fced3f4"),
     moment: {$date:"2013-07-03T03:23:23.900+05:00"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 91, 
-    boolean: true, 
-    decimal: 0.24, 
-    textField: "Beethoven", 
-    docIdentifier: ObjectId("660a048f0ea7913a8fced3f6"), 
+    field1: 91,
+    boolean: true,
+    decimal: 0.24,
+    textField: "Beethoven",
+    docIdentifier: ObjectId("660a048f0ea7913a8fced3f6"),
     moment: {$date:"2006-12-12T12:38:48.985-04:00"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 123, 
-    boolean: true, 
-    decimal: 0.111, 
+    field1: 123,
+    boolean: true,
+    decimal: 0.111,
     textField: "Hikaru",
-    docIdentifier: ObjectId("660a04910ea7913a8fced3f8"), 
+    docIdentifier: ObjectId("660a04910ea7913a8fced3f8"),
     moment: {$date:"2004-04-04T19:07:21.388-02:00"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 912, 
-    boolean: true, 
-    decimal: 1.231, 
-    textField: "Spinal Chord", 
-    docIdentifier: ObjectId("660a04920ea7913a8fced3fa"), 
+    field1: 912,
+    boolean: true,
+    decimal: 1.231,
+    textField: "Spinal Chord",
+    docIdentifier: ObjectId("660a04920ea7913a8fced3fa"),
     moment: {$date:"2010-11-11T21:21:59.991Z"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 1023, 
-    boolean: false, 
-    decimal: 5.121, 
-    textField: "Large and Powerful", 
-    docIdentifier: ObjectId("660a04930ea7913a8fced3fc"), 
+    field1: 1023,
+    boolean: false,
+    decimal: 5.121,
+    textField: "Large and Powerful",
+    docIdentifier: ObjectId("660a04930ea7913a8fced3fc"),
     moment: {$date:"2011-09-09T13:29:31.211-06:00"},
     billionaire: 77000000000
 })"),
         fromjson(R"(
 {
-    field1: 34, 
-    boolean: true, 
-    decimal: 0.123, 
-    textField: "Arresto Momentum", 
-    docIdentifier: ObjectId("660a04940ea7913a8fced3fe"), 
+    field1: 34,
+    boolean: true,
+    decimal: 0.123,
+    textField: "Arresto Momentum",
+    docIdentifier: ObjectId("660a04940ea7913a8fced3fe"),
     moment: {$date:"2018-01-30T23:00:01.009Z"},
     billionaire: 77000000000
 })"),
@@ -300,9 +300,9 @@ TEST_F(CsvFileInputTest, AbsentField) {
         fromjson(R"(
 {
     things: "HedgeFund",
-    when: {$date: "2020-10-10T10:10:10.101-06:00"}, 
+    when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: null,
-    long: 9000000000, 
+    long: 9000000000,
     identifier: ObjectId("123456789a123456789b1fcb"),
     correct: true
 })"),
@@ -311,13 +311,13 @@ TEST_F(CsvFileInputTest, AbsentField) {
     things: null,
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 56,
-    long: 2300000000, 
+    long: 2300000000,
     identifier: ObjectId("a987654321bdbbcbeebfb528"),
     correct: true
 })"),
         fromjson(R"(
 {
-    things: "Schema", 
+    things: "Schema",
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: null,
     long: 4000000000,
@@ -329,7 +329,7 @@ TEST_F(CsvFileInputTest, AbsentField) {
     things: "field1",
     when: null,
     count: 45,
-    long: null, 
+    long: null,
     identifier: null,
     correct: true
 })"),
@@ -344,10 +344,10 @@ TEST_F(CsvFileInputTest, AbsentField) {
 })"),
         fromjson(R"(
 {
-    things: "Texting", 
+    things: "Texting",
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 47,
-    long: null, 
+    long: null,
     identifier: null,
     correct: false
 })"),
@@ -380,7 +380,7 @@ TEST_F(CsvFileInputTest, AbsentField) {
 })"),
         fromjson(R"(
 {
-    things: "remote", 
+    things: "remote",
     when: {$date: "2020-10-10T10:10:10.101-06:00"},
     count: 50,
     long: 77777777776,
@@ -389,7 +389,7 @@ TEST_F(CsvFileInputTest, AbsentField) {
 })"),
         fromjson(R"(
 {
-    things: "controller", 
+    things: "controller",
     when: null,
     count: null,
     long: 44444444444,
@@ -593,21 +593,19 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
 }
 
 TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
-    CsvFileInput input("DNE.csv", "DNE.txt");
+    ASSERT_THROWS_CODE(CsvFileInput("DNE.csv", "DNE.txt"), DBException, ErrorCodes::FileNotOpen);
+
+    ASSERT_THROWS_CODE(CsvFileInput("DNE1.csv", "DNE1.txt"), DBException, ErrorCodes::FileNotOpen);
+
+    CsvFileInput input("DNE2.csv", "csv_test/badOid.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, ErrorCodes::FileNotOpen);
-
-    CsvFileInput input1("DNE1.csv", "DNE1.txt");
-    ASSERT_THROWS_CODE(input1.open(), DBException, ErrorCodes::FileNotOpen);
-
-    CsvFileInput input2("DNE2.csv", "csv_test/badOid.txt");
-    ASSERT_THROWS_CODE(input2.open(), DBException, ErrorCodes::FileNotOpen);
 }
 
 TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
     ASSERT_THROWS_CODE(
-        CsvFileInput("../diffLength.csv", "../csv_test/diffLength.txt"), DBException, 200000400);
+        CsvFileInput("../diffLength.csv", "../csv_test/diffLength.txt"), DBException, 200000401);
 
-    ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
+    ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000401);
 
     ASSERT_THROWS_CODE(
         CsvFileInput("basicRead.csv",
@@ -617,17 +615,21 @@ TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
 }
 
 TEST_F(CsvFileInputTest, FailByBadMetadata) {
-    CsvFileInput input("csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
-    ASSERT_THROWS_CODE(input.open(), DBException, 200000403);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata.txt"),
+                       DBException,
+                       200000403);
 
-    CsvFileInput input1("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
-    ASSERT_THROWS_CODE(input1.open(), DBException, 200000403);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt"),
+                       DBException,
+                       200000403);
 
-    CsvFileInput input2("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
-    ASSERT_THROWS_CODE(input2.open(), DBException, 200000404);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt"),
+                       DBException,
+                       200000404);
 
-    CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
-    ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt"),
+                       DBException,
+                       200000403);
 }
 
 TEST_F(CsvFileInputTest, ErrorCount) {
@@ -643,7 +645,7 @@ TEST_F(CsvFileInputTest, ErrorCount) {
     distant: null,
     quadruple: null,
     RightOrWrong: null,
-    identifier: null, 
+    identifier: null,
     signOn: null
 })"),
         fromjson(R"(
@@ -653,7 +655,7 @@ TEST_F(CsvFileInputTest, ErrorCount) {
     distant: 1234567890,
     quadruple: 35.23,
     RightOrWrong: true,
-    identifier: ObjectId("123456789012345678901234"), 
+    identifier: ObjectId("123456789012345678901234"),
     signOn: {$date: "2024-04-12T13:36:37.100-06:00"}
 })"),
         fromjson(R"(
