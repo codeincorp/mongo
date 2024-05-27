@@ -47,6 +47,9 @@ struct FieldInfo {
     CsvFieldType fieldType;
 };
 
+// State machine to assist parsing record into fields.
+enum class parsingState { quoteClosed, quoteOpen, beginField, checkForDoubleQuote };
+
 using Metadata = std::vector<FieldInfo>;
 
 class CsvFileInput : public StreamableInput {
@@ -96,7 +99,7 @@ private:
 
     /**
      * Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each
-     * field as string.
+     * field as string, according to RFC 4180: https://www.rfc-editor.org/rfc/rfc4180
      *
      * @param line read from csv, "data1,data2,data3..."
      * @return: vector containing each field as string, {"data1","data2","data3"...}.

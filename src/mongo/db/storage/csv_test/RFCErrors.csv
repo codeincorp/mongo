@@ -1,0 +1,8 @@
+aaa"bbb, bad embedded quote
+"horror movie","354" ,whitespace after comma
+No bueno,37 ,"2"56", bad quote in numeric
+paper company ,34,52,"4.523", "FALSE", whitespace before quote
+barkbarck"Bad "Q"u""o""te 2",Tori,"normal line", bad embedded quotes2
+"Regular String, But Not Today.",30,40,"NAN","T",objectID("123aaabbb01cd45f78cda3643"), no character before double quote
+string,1,1,1.1,"1",123456789012345678901234,2020-12-12"T10:10:10:111Z", bad embedded quote in date
+"End of file before quote closes

@@ -282,7 +282,17 @@ template <>
 void CsvFileInput::appendTo<CsvFieldType::kString>(BSONObjBuilder& builder,
                                                    const std::string& fieldName,
                                                    const std::string_view& field) {
-    builder.append(fieldName, StringData{field.begin(), field.length()});
+    size_t sz = field.size();
+    size_t copied = 0;
+    char cpyStr[sz];
+    for (size_t i = 0; i < sz; i++) {
+        cpyStr[copied] = field[i];
+        if (field[i] == '\"') {  // Skipping the escaping double quote.
+            i++;
+        }
+        copied++;
+    }
+    builder.append(fieldName, StringData{cpyStr, copied});
 }
 
 template <>
@@ -303,34 +313,23 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
                                                 const std::string& fieldName,
                                                 const std::string_view& field) {
     constexpr size_t kLengthOidValue = 24;
-    constexpr size_t kOidTypeStr = 8;                      // Length of 'objectid'.
-    constexpr size_t kOidTypeStrPrefix = kOidTypeStr + 2;  // Length of 'objectid(\"'.
 
-    std::string mutableData{field.begin(), field.end()};
-    if (field[0] == 'O' || field[0] == 'o') {
-        std::transform(
-            mutableData.begin(), mutableData.begin() + kOidTypeStr, mutableData.begin(), ::tolower);
+    // checking if the oid is enclosed by double quote or not
+    std::string_view fieldData = field.front() == '\"' && field.back() == '\"'
+        ? std::string_view(field.begin() + 2, field.end() - 2)
+        : std::string_view(field.begin(), field.end());
 
-        if (mutableData.substr(0, kOidTypeStrPrefix) != "objectid(\"") {
-            _ioStats->incInvalidOid();
-            builder.appendNull(fieldName);
-            return;
-        }
-
-        mutableData = mutableData.substr(kOidTypeStrPrefix, kLengthOidValue);
-    } else if (field[0] == '\"') {
-        mutableData = mutableData.substr(1, kLengthOidValue);
-    }
-
-    if (mutableData.length() != kLengthOidValue) {
+    if (fieldData.length() != kLengthOidValue) {
         _ioStats->incInvalidOid();
         builder.appendNull(fieldName);
         return;
     }
 
     mongo::OID id;
+    auto strData = StringData(fieldData.data(), kLengthOidValue);
+
     try {
-        id = mongo::OID(mutableData);  // Throws exception if it detects bad OID.
+        id = mongo::OID(strData);  // Throws exception if it detects bad OID.
     } catch (const ExceptionFor<ErrorCodes::FailedToParse>&) {
         _ioStats->incInvalidOid();
         builder.appendNull(fieldName);
@@ -365,7 +364,25 @@ std::string_view CsvFileInput::getLine() {
     dassert(_offset <= _fileSize);
 
     size_t start = _offset;
-    while (_offset < _fileSize && _data[_offset] != '\n') {
+    bool quoteOpen = _data[_offset] == '\"';
+    if (quoteOpen) {
+        _offset++;
+    }
+
+    while (_offset < _fileSize && (_data[_offset] != '\n' || quoteOpen)) {
+        if (_data[_offset] == '\"') {
+            if (!quoteOpen && _data[_offset - 1] == ',') {  // if beginning of the field, open quote
+                quoteOpen = true;
+            }  // if quote is open and single quote, close the quote
+            else if (quoteOpen && _data[_offset + 1] != '\"') {
+                quoteOpen = false;
+            }  // if quote is open and double quote, extra increment _offset
+            else if (quoteOpen && _data[_offset + 1] == '\"') {
+                _offset++;
+            }
+            // Quote that appears in the unenclosed middle of field(aaa"""bb""cc"), or  appears
+            // after closing quote, but before the end of the field("aaa"bbb"), should be ignored
+        }
         ++_offset;
     }
     size_t len = [&] {
@@ -441,28 +458,88 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
     return builder.done().getOwned();
 }
 
+/**  State Machine Diagram:
+ * Start State: ⬇︎  ︎         cur_char != "
+ * +--------------+  The field is NOT enclosed    +----------------+
+ * |    State:    | ----------------------------> |     State:     |-----
+ * |  begindField |                               |  quote_Closed  |     | regular characters
+ * |              | <---------------------------- |                | <---
+ * +--------------+ <___            cur_char = ,  +----------------+ ---> cur_char = " illegal
+ *   |  ⬆︎               \             End of field               double quote, RFC Non compliant,
+ *   |__| cur_char = ,    \_____
+ *   |    Empty field           |___________
+ *   |                                      \
+ *   |                                       \
+ *   | cur_char = "                           ︎\ ︎ ︎  cur_char = ,
+ *   | The field is enclosed by                \   Meaning next character after closing quote is
+ *   | Double Quotes                            \  comma, (",) Correct syntax for end of field
+ *   ⬇︎ ︎                                          \
+ * +--------------+       cur_char = "            +----------------+
+ * |     State:   | ----------------------------> |      State:    | other characters
+ * |  quote_open  |                               | checkForDouble | ---> RFC Non compliant
+ * |              | <---------------------------- |     -Quote     |
+ * +--------------+       cur_char = "            +----------------+
+ *    |   ⬆︎          Double double quote (""),
+ *    |   |           Escaped double quote
+ *    |___|
+ *   Any character, except double quote "
+ */
+
 std::vector<std::string_view> CsvFileInput::parseLine(const std::string_view& line) {
-    int left = 0;
-    int right = 0;
-    int len = line.length();
-    int i = 0;
+    auto stateMachine = parsingState::beginField;
+
+    const size_t len = line.length();
+    size_t i = 0;
+    size_t left = 0;
     std::vector<std::string_view> fields;
 
     while (i <= len) {
-        if (i == len || line.at(i) == ',') {
-            fields.emplace_back(line.substr(left, right - left));
-            left = 0;
-            right = 0;
-        } else if (line.at(i) != ' ' && line.at(i) != '\t') {
-            if (right == 0) {
+        switch (stateMachine) {
+            case parsingState::beginField:
                 left = i;
-            }
-            right = i + 1;
+                if (i == len || line[i] == ',') {  // Empty field.
+                    fields.emplace_back(line.substr(left, 0));
+                    left++;
+                    break;
+                }
+                stateMachine =
+                    line[i] == '\"' ? parsingState::quoteOpen : parsingState::quoteClosed;
+                break;
+            case parsingState::quoteOpen:
+                if (i == len) {  // Field that does not comply with RFC 4180
+                    _ioStats->incNonCompliantWithRFC();
+                    return {};
+                }
+                if (line[i] == '\"') {
+                    stateMachine = parsingState::checkForDoubleQuote;
+                }
+                break;
+            case parsingState::quoteClosed:
+                if (i == len || line[i] == ',') {  // End of Field.
+                    fields.emplace_back(line.substr(left, i - left));
+                    stateMachine = parsingState::beginField;
+                } else if (line[i] == '\"') {  // Field that does not comply with RFC 4180
+                    _ioStats->incNonCompliantWithRFC();
+                    return {};
+                }
+                break;
+            case parsingState::checkForDoubleQuote:
+                if (i == len || line[i] == ',') {  // End of field.
+                    fields.emplace_back(line.substr(left + 1, i - 2 - left));
+                    stateMachine = parsingState::beginField;
+                } else if (line[i] == '\"') {  // Escaping double quote.
+                    stateMachine = parsingState::quoteOpen;
+                } else {  // Field that does not comply with RFC 4180
+                    _ioStats->incNonCompliantWithRFC();
+                    return {};
+                }
+                break;
         }
-
         i++;
     }
+
     return fields;
 }
+
 
 }  // namespace mongo

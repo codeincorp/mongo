@@ -55,6 +55,7 @@ struct CsvFileIoStats : public IoStats {
     int64_t _inputSize = 0;
     int64_t _outputSize = 0;  // actually processed bytes
     int64_t _bsonsReturned = 0;
+    int64_t _nonCompliantWithRFC = 0;
 
     StorageTypeEnum getStorageType() const override {
         return StorageTypeEnum::file;
@@ -88,6 +89,7 @@ struct CsvFileIoStats : public IoStats {
         sub.append("inputSize", _inputSize);
         sub.append("outputSize", _outputSize);
         sub.append("bsonsReturned", _bsonsReturned);
+        sub.append("nonCompliantWithRFC", _nonCompliantWithRFC);
         sub.doneFast();
         return builder;
     }
@@ -113,7 +115,13 @@ struct CsvFileIoStats : public IoStats {
         _inputSize += other._inputSize;
         _outputSize += other._outputSize;
         _bsonsReturned += other._bsonsReturned;
+        _nonCompliantWithRFC += other._nonCompliantWithRFC;
         return *this;
+    }
+
+    void incNonCompliantWithRFC() {
+        _nonCompliantWithRFC++;
+        _totalErrorCount++;
     }
 
     void incIncompleteConversionToNumeric() {
