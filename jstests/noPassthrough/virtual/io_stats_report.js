@@ -41,19 +41,18 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
         "incompleteConversionToNumeric": NumberLong(4),
         "invalidInt32": NumberLong(1),
         "invalidInt64": NumberLong(1),
-        "invalidDouble": NumberLong(1),
-        "outOfRange": NumberLong(2),
-        "invalidDate": NumberLong(4),
-        "invalidOid": NumberLong(4),
-        "invalidBoolean": NumberLong(3),
-        "metadataAndDataDifferentLength": NumberLong(2),
-        "unixFormat": NumberLong(8),
+        "invalidDouble": NumberLong(2),
+        "outOfRange": NumberLong(4),
+        "invalidDate": NumberLong(6),
+        "invalidOid": NumberLong(5),
+        "invalidBoolean": NumberLong(4),
+        "metadataAndDataDifferentLength": NumberLong(1),
+        "unixFormat": NumberLong(9),
         "dosFormat": NumberLong(0),
-        "totalErrorCount": NumberLong(23),
+        "totalErrorCount": NumberLong(28),
         "inputSize": NumberLong(733),
-        "outputSize": NumberLong(829),
-        "bsonsReturned": NumberLong(8),
-        "nonCompliantWithRFC": NumberLong(1)
+        "outputSize": NumberLong(1036),
+        "bsonsReturned": NumberLong(9)
     };
     const res = coll.explain("executionStats")
                     .find({"number": {$gte: 30}}, {kString: 1, number: 1, identifier: 1, signOn: 1})
@@ -86,21 +85,20 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
 
     const expectedIoStats = {
         "incompleteConversionToNumeric": NumberLong(6),
-        "invalidInt32": NumberLong(4),
+        "invalidInt32": NumberLong(5),
         "invalidInt64": NumberLong(4),
-        "invalidDouble": NumberLong(6),
-        "outOfRange": NumberLong(4),
-        "invalidDate": NumberLong(6),
-        "invalidOid": NumberLong(6),
-        "invalidBoolean": NumberLong(7),
-        "metadataAndDataDifferentLength": NumberLong(8),
-        "unixFormat": NumberLong(17),
+        "invalidDouble": NumberLong(7),
+        "outOfRange": NumberLong(7),
+        "invalidDate": NumberLong(8),
+        "invalidOid": NumberLong(8),
+        "invalidBoolean": NumberLong(9),
+        "metadataAndDataDifferentLength": NumberLong(5),
+        "unixFormat": NumberLong(18),
         "dosFormat": NumberLong(0),
-        "totalErrorCount": NumberLong(54),
-        "inputSize": NumberLong(1298),
-        "outputSize": NumberLong(1485),
-        "bsonsReturned": NumberLong(17),
-        "nonCompliantWithRFC": NumberLong(3)
+        "totalErrorCount": NumberLong(59),
+        "inputSize": NumberLong(1306),
+        "outputSize": NumberLong(1919),
+        "bsonsReturned": NumberLong(18)
     };
 
     const res = coll.explain("executionStats").find().finish();
@@ -139,19 +137,18 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
             "incompleteConversionToNumeric": NumberLong(4),
             "invalidInt32": NumberLong(1),
             "invalidInt64": NumberLong(1),
-            "invalidDouble": NumberLong(1),
-            "outOfRange": NumberLong(2),
-            "invalidDate": NumberLong(4),
-            "invalidOid": NumberLong(4),
-            "invalidBoolean": NumberLong(3),
-            "metadataAndDataDifferentLength": NumberLong(2),
-            "unixFormat": NumberLong(8),
+            "invalidDouble": NumberLong(2),
+            "outOfRange": NumberLong(4),
+            "invalidDate": NumberLong(6),
+            "invalidOid": NumberLong(5),
+            "invalidBoolean": NumberLong(4),
+            "metadataAndDataDifferentLength": NumberLong(1),
+            "unixFormat": NumberLong(9),
             "dosFormat": NumberLong(0),
-            "totalErrorCount": NumberLong(23),
+            "totalErrorCount": NumberLong(28),
             "inputSize": NumberLong(733),
-            "outputSize": NumberLong(829),
-            "bsonsReturned": NumberLong(8),
-            "nonCompliantWithRFC": NumberLong(1)
+            "outputSize": NumberLong(1036),
+            "bsonsReturned": NumberLong(9)
         }
     };
 
@@ -204,21 +201,20 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
     const expectedIoStats = {
         csv: {
             "incompleteConversionToNumeric": NumberLong(6),
-            "invalidInt32": NumberLong(4),
+            "invalidInt32": NumberLong(5),
             "invalidInt64": NumberLong(4),
-            "invalidDouble": NumberLong(6),
-            "outOfRange": NumberLong(4),
-            "invalidDate": NumberLong(6),
-            "invalidOid": NumberLong(6),
-            "invalidBoolean": NumberLong(7),
-            "metadataAndDataDifferentLength": NumberLong(8),
-            "unixFormat": NumberLong(17),
+            "invalidDouble": NumberLong(7),
+            "outOfRange": NumberLong(7),
+            "invalidDate": NumberLong(8),
+            "invalidOid": NumberLong(8),
+            "invalidBoolean": NumberLong(9),
+            "metadataAndDataDifferentLength": NumberLong(5),
+            "unixFormat": NumberLong(18),
             "dosFormat": NumberLong(0),
-            "totalErrorCount": NumberLong(54),
-            "inputSize": NumberLong(1298),
-            "outputSize": NumberLong(1485),
-            "bsonsReturned": NumberLong(17),
-            "nonCompliantWithRFC": NumberLong(3)
+            "totalErrorCount": NumberLong(59),
+            "inputSize": NumberLong(1306),
+            "outputSize": NumberLong(1919),
+            "bsonsReturned": NumberLong(18)
         }
     };
 

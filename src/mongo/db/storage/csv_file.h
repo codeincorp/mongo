@@ -48,7 +48,7 @@ struct FieldInfo {
 };
 
 // State machine to assist parsing record into fields.
-enum class parsingState { quoteClosed, quoteOpen, beginField, checkForDoubleQuote };
+enum class ParsingState { notQuoted, quoted, checkForDoubleDoubleQuote };
 
 using Metadata = std::vector<FieldInfo>;
 
@@ -95,7 +95,7 @@ private:
      */
     Metadata getMetadata(const std::vector<std::string_view>& header);
 
-    std::string_view getLine();
+    std::string_view getRecord();
 
     /**
      * Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each
@@ -104,7 +104,7 @@ private:
      * @param line read from csv, "data1,data2,data3..."
      * @return: vector containing each field as string, {"data1","data2","data3"...}.
      */
-    std::vector<std::string_view> parseLine(const std::string_view& line);
+    std::vector<std::string_view> parseRecord(const std::string_view& line);
 
     template <CsvFieldType T>
     void appendTo(BSONObjBuilder& builder,

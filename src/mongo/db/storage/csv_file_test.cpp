@@ -246,7 +246,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 63,
     boolean: true,
-    decimal: -9223372036854774784,
+    decimal: -9223372036854774784.0,
     textField: "IstanU",
     docIdentifier: ObjectId("12abc6edf01aab5ff8d0feca"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
@@ -256,7 +256,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 93,
     boolean: false,
-    decimal: 9223372036854773760,
+    decimal: 9223372036854773760.0,
     textField: "\"Arresto Momentum\"",
     docIdentifier: ObjectId("19ec449399a7cbadffcff3fe"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
@@ -289,7 +289,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 
     std::unique_ptr<CsvFileIoStats> csvFileIoStats{
         dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
-    ASSERT_EQ(2195, csvFileIoStats->_inputSize);
+    ASSERT_EQ(2275, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(24, csvFileIoStats->_bsonsReturned);
 }
@@ -434,13 +434,11 @@ TEST_F(CsvFileInputTest, CollectInvalidOID) {
     std::unique_ptr<CsvFileIoStats> csvFileIoStats{
         dynamic_cast<CsvFileIoStats*>(invalidOid.releaseIoStats().release())};
     ASSERT_NE(csvFileIoStats, nullptr);
-    ASSERT_EQ(csvFileIoStats->_invalidOid, 13);
-    ASSERT_EQ(csvFileIoStats->_invalidInt32, 13);
-    ASSERT_EQ(csvFileIoStats->_invalidDate, 13);
-    ASSERT_EQ(csvFileIoStats->_nonCompliantWithRFC, 1);
-    ASSERT_EQ(csvFileIoStats->_nonCompliantWithRFC, 1);
-    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 41);
-    ASSERT_EQ(677, csvFileIoStats->_inputSize);
+    ASSERT_EQ(csvFileIoStats->_invalidOid, 14);
+    ASSERT_EQ(csvFileIoStats->_invalidInt32, 14);
+    ASSERT_EQ(csvFileIoStats->_invalidDate, 14);
+    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 42);
+    ASSERT_EQ(671, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(14, csvFileIoStats->_bsonsReturned);
 }
@@ -870,13 +868,6 @@ TEST_F(CsvFileInputTest, RFCEdgeCases) {
     field3: "double quote",
     field4: "MICRO SOFT\nnew lines,\nnew lines,\nnew lines,\n"
 })"),
-        /* field4:
-        MICRO SOFT
-        new lines,
-        new lines,
-        new lines,
-
-        */
         fromjson(R"(
 {
     field1: "AMA\"\"zon,,,,,,,\"",
@@ -948,7 +939,7 @@ TEST_F(CsvFileInputTest, RFCEdgeCases) {
     field1: null,
     field2: null,
     field3: "    alone   ",
-    field4: null
+    field4: "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\""
 })"),
         fromjson(R"(
 {
@@ -971,21 +962,56 @@ TEST_F(CsvFileInputTest, RFCEdgeCases) {
 }
 
 TEST_F(CsvFileInputTest, NotCompliantWithRFC) {
-    CsvFileInput input("/csv_test/RFCErrors.csv", "/csv_test/RFCErrors.txt");
-    input.open();
-
-    constexpr int bufSize = 10;
+    constexpr int bufSize = 30;
     char buf[bufSize];
 
-    while (input.isGood()) {
-        input.read(buf, bufSize);
-    }
+    CsvFileInput input("/csv_test/RFC4180Errors/RFCErrors.csv",
+                       "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input.open();
+    input.read(buf, bufSize);
+    input.close();
 
-    std::unique_ptr<CsvFileIoStats> csvFileIoStats{
-        dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
-    ASSERT_EQ(csvFileIoStats->_nonCompliantWithMetadata, 8);
-    ASSERT_EQ(csvFileIoStats->_nonCompliantWithRFC, 8);
-    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 16);
+    CsvFileInput input2("/csv_test/RFC4180Errors/RFCErrors1.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input2.open();
+    input2.read(buf, bufSize);
+    input2.close();
+
+    CsvFileInput input3("/csv_test/RFC4180Errors/RFCErrors2.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input3.open();
+    input3.read(buf, bufSize);
+    input3.close();
+
+    CsvFileInput input4("/csv_test/RFC4180Errors/RFCErrors3.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input4.open();
+    input4.read(buf, bufSize);
+    input4.close();
+
+    CsvFileInput input5("/csv_test/RFC4180Errors/RFCErrors4.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input5.open();
+    input5.read(buf, bufSize);
+    input5.close();
+
+    CsvFileInput input6("/csv_test/RFC4180Errors/RFCErrors5.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input6.open();
+    input6.read(buf, bufSize);
+    input6.close();
+
+    CsvFileInput input7("/csv_test/RFC4180Errors/RFCErrors6.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input7.open();
+    input7.read(buf, bufSize);
+    input7.close();
+
+    CsvFileInput input8("/csv_test/RFC4180Errors/RFCErrors7.csv",
+                        "/csv_test/RFC4180Errors/RFCErrors.txt");
+    input8.open();
+    input8.read(buf, bufSize);
+    input8.close();
 }
 
 }  // namespace mongo
