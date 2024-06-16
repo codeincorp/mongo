@@ -48,7 +48,7 @@ struct FieldInfo {
 };
 
 // State machine to assist parsing record into fields.
-enum class ParsingState { notQuoted, quoted, checkForDoubleDoubleQuote };
+enum class ParsingState { notQuoted, quoted, checkForEscapedDoubleQuote };
 
 using Metadata = std::vector<FieldInfo>;
 
@@ -95,6 +95,11 @@ private:
      */
     Metadata getMetadata(const std::vector<std::string_view>& header);
 
+    /**
+     * Returns each record which is compliant with RFC4180. This method handles the double quote
+     * pair and the escaped double quote inside a quoted field. This greatly simplifies the
+     * implementation of parseRecord().
+     */
     std::string_view getRecord();
 
     /**
@@ -125,6 +130,9 @@ private:
     size_t _offset = 0;
     Metadata _metadata;
     std::unique_ptr<CsvFileIoStats> _ioStats;
+    // A temporary buffer to handle escaped double quote in a quoted string field value. Lazily
+    // allocated.
+    std::unique_ptr<char[]> _copyStr = nullptr;
 };
 
 }  // namespace mongo

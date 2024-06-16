@@ -283,29 +283,35 @@ template <>
 void CsvFileInput::appendTo<CsvFieldType::kString>(BSONObjBuilder& builder,
                                                    const std::string& fieldName,
                                                    const std::string_view& field) {
+    constexpr size_t kCopyStrBufSize = 65536;
     const size_t sz = field.size();
-    uassert(200000900, "The string too big at offset = {}"_format(_offset), sz <= 65536);
+    uassert(
+        200000900, "The string is too big at offset = {}"_format(_offset), sz <= kCopyStrBufSize);
     size_t nCopied = 0;
-    char cpyStr[sz];
 
     size_t start = 0;
-
     for (size_t i = 0; i < sz; i++) {
-        if (field[i] == '\"') {  // Skipping the escaping double quote.
+        if (field[i] == '\"') {
+            // Skipping the escaping double quote.
             i++;
 
-            memcpy(cpyStr + nCopied, field.data() + start, i - start);
+            if (!_copyStr) {
+                _copyStr.reset(new char[kCopyStrBufSize]);
+            }
+            memcpy(_copyStr.get() + nCopied, field.data() + start, i - start);
             nCopied += (i - start);
             start = i + 1;
         }
     }
 
-    if (start == 0) {  // If there was no double quote in the string_view, directly append the field
+    if (nCopied == 0) {
+        // If there was no double quote in the string_view, directly append the field
         builder.append(fieldName, StringData{field.data(), sz});
-    } else {  // else, append the last substring
-        memcpy(cpyStr + nCopied, field.data() + start, sz - start);
+    } else {
+        // else, append the last substring
+        memcpy(_copyStr.get() + nCopied, field.data() + start, sz - start);
         nCopied += (sz - start);
-        builder.append(fieldName, StringData{cpyStr, nCopied});
+        builder.append(fieldName, StringData{_copyStr.get(), nCopied});
     }
 }
 
@@ -331,23 +337,21 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
     constexpr size_t oidSufixLen = 3;
     constexpr size_t quotedOid = 2;
 
-    bool objId = boost::iequals(field.substr(0, oidPrefixLen), "objectId(\"\"") &&
+    bool hasPrefix = boost::iequals(field.substr(0, oidPrefixLen), "objectid(\"\"") &&
         field[field.size() - 1] == ')';
 
     // Check if the oid is formatted as objectId("1234....") and if it is, slice off the prefix
-    // 'objectId("', which is 11 characters and suffic '")'. Else, Check if the oid is enclosed by
-    // double quote or not. If so, since it should be RFC compliant, it would be surrounded by
-    // double double-quotes, like
-    // ""1234...""
-
-    std::string_view fieldData;
-    if (objId) {
-        fieldData = std::string_view(field.begin() + oidPrefixLen, field.end() - oidSufixLen);
-    } else {
-        fieldData = field.front() == '\"' && field.back() == '\"'
+    // 'objectId("', which is 11 characters and suffix '")'. Otherwise, Check if the oid is enclosed
+    // by double quote or not. If so, since it should be RFC compliant, it would be surrounded by
+    // double double-quotes, like ""1234...""
+    std::string_view fieldData = [&] {
+        if (hasPrefix) {
+            return std::string_view(field.begin() + oidPrefixLen, field.end() - oidSufixLen);
+        }
+        return field.front() == '\"' && field.back() == '\"'
             ? std::string_view(field.begin() + quotedOid, field.end() - quotedOid)
             : std::string_view(field.begin(), field.end());
-    }
+    }();
 
     if (fieldData.length() != kLengthOidValue) {
         _ioStats->incInvalidOid();
@@ -355,15 +359,14 @@ void CsvFileInput::appendTo<CsvFieldType::kOid>(BSONObjBuilder& builder,
         return;
     }
 
-    auto strData = StringData(fieldData.data(), kLengthOidValue);
-    auto oid = OID::parse(strData);
-    if (!oid.isOK()) {
+    auto swOid = OID::parse(StringData(fieldData.data(), kLengthOidValue));
+    if (!swOid.isOK()) {
         _ioStats->incInvalidOid();
         builder.appendNull(fieldName);
         return;
     }
 
-    builder.append(fieldName, oid.getValue());
+    builder.append(fieldName, swOid.getValue());
 }
 
 template <>
@@ -392,52 +395,54 @@ std::string_view CsvFileInput::getRecord() {
     dassert(_offset <= _fileSize);
 
     size_t start = _offset;
-    // If the first field is quoted, consume the first character.
+    // If the first field is quoted, consumes the first character.
     bool quoteOpen = _data[_offset] == '\"';
     if (quoteOpen) {
         _offset++;
     }
 
+    bool badDoubleQuote = false;
     while (_offset < _fileSize && (_data[_offset] != '\n' || quoteOpen)) {
         if (_data[_offset] == '\"') {
-
-            if (!quoteOpen && _data[_offset - 1] == ',') {  // if beginning of the field, open quote
+            // We should handle the double quote specially according to RFC4180.
+            if (!quoteOpen && _data[_offset - 1] == ',') {
+                // Opens the quote only if it's the beginning of the field.
                 quoteOpen = true;
-            }
-            // If quote is open and end of filed, close the quote. End of field is when: The
-            // Cursor reached the end of the file, or the next character is: comma, dos format new
-            // line (\r), or Unix format new line(\n).
-            else if (quoteOpen &&
-                     (_offset + 1 >= _fileSize || _data[_offset + 1] == ',' ||
-                      _data[_offset + 1] == '\r' || _data[_offset + 1] == '\n')) {
+            } else if (quoteOpen &&
+                       (_offset + 1 >= _fileSize || _data[_offset + 1] == ',' ||
+                        _data[_offset + 1] == '\r' || _data[_offset + 1] == '\n')) {
+                // If quote is open and we reached end of field, close the quote. End of field is
+                // reached when:
+                // - The '_offset' reached the end of the file or
+                // - The next character is:
+                //   - comma: end of field in the middle of a record,
+                //   - DOS format carriage return (\r), or Unix format new line(\n) : end of the
+                //     last field.
                 quoteOpen = false;
-            }  // if quote is open and double quote, extra increment _offset
-            else if (quoteOpen && (_offset + 1 < _fileSize && _data[_offset + 1] == '\"')) {
+            } else if (quoteOpen && (_offset + 1 < _fileSize && _data[_offset + 1] == '\"')) {
+                // if quote is open and we found an escaped double quote (""), increment _offset one
+                // more
                 _offset++;
             } else {
-                LOGV2_WARNING(200000901,
-                              "csvFile violates the RFC 4180 standard. The rest of the contents of "
-                              "csvFile is skipped Cursor = _offset",
-                              "csvFile"_attr = _fileAbsolutePath,
-                              "_offset"_attr = _offset);
-                _offset = _fileSize;
-                return "";  // return empty record
+                badDoubleQuote = true;
+                break;
             }
-            // When CsvFileInput detects a bad quote that violates RFC 4180, it will immediately
-            // stop reading the csv file. E.g: (aaa"""bb""cc"), field("aaa"bbb").
         }
         ++_offset;
     }
 
-    if (quoteOpen) {  // Reached the end of the fiile without closing the previous double quote.
-                      // Although this case will be extremely rare, it is possible.
+    if (badDoubleQuote || quoteOpen) {
+        using namespace std;  // for ""_sv literal operator.
+        // When detecting a bad double quote that violates RFC4180 or reached the end of the file
+        // without closing the previous double quote, immediately stop reading the csv file.
+        // E.g: aaa"""bb""cc",field("aaa"bbb"),"aaa\n.
         LOGV2_WARNING(200000901,
-                      "csvFile violates the RFC 4180 standard. The rest of the contents of "
-                      "csvFile is skipped Cursor = _offset",
-                      "csvFile"_attr = _fileAbsolutePath,
-                      "_offset"_attr = _offset);
+                      "File content is not compliant with the RFC4180. The rest of file is ignored",
+                      "filePath"_attr = _fileAbsolutePath,
+                      "offset"_attr = _offset);
         _offset = _fileSize;
-        return "";  // return empty record
+        // Returns empty record.
+        return ""sv;
     }
 
     size_t len = [&] {
@@ -515,72 +520,76 @@ boost::optional<BSONObj> CsvFileInput::readBsonObj() {
 
 /**
  * State Machine Diagram:
- * Since getRecord does not allow RFC-violating record, parseRecord assumes that bad double quote
- * does not exist, therefore does not have any check against it
+ * Since getRecord() does not allow RFC-violating record, parseRecord() assumes that bad double
+ * quote does not exist, therefore does not have any check against it
  *
  * Start State: ⬇︎  ︎
  * +--------------+
  * |    State:    |
- * |  notQuoted   |⟲ cur_char = , End of field
+ * |  notQuoted   |⟲ cur_char = , or End of field
  * |              |
- * +--------------+ <___
- *   |                  \
- *   |                    \_____
- *   |                          |___________
+ * +--------------+ <-------------------+
+ *   |                                   \
+ *   |                                    \
+ *   |                                     \
  *   |                                      \
- *   |                                       \
- *   | cur_char = "                           ︎\ ︎ ︎ Else, it can only be comma, since getRecord
- *   | The field is enclosed by                \  does not allow RFC-violating record. Thus, it
- *   | Double quotes                            \ cur_char is not ", it must be the end of the field
- *   ⬇︎ ︎                                          \
+ *   |                                       \ Any character except double quote:
+ *   | cur_char = "                           ︎\ ︎ ︎  Otherwise, it can only be comma, since
+ *   | The field is enclosed by                \   getRecord() does not allow RFC-violating record.
+ *   | double quotes                            \  Thus, if cur_char is not ", it must be the end of
+ *   ⬇︎ ︎                                          \ the field.
  * +--------------+        cur_char = "           +----------------+
  * |    State:    | ----------------------------> |      State:    | other characters
- * |    quoted    |                               | checkForDouble | ---> RFC Non compliant
- * |              | <---------------------------- |  Double-Quote  |
+ * |    quoted    |                               | checkForEscaped| ---> RFC Non compliant
+ * |              | <---------------------------- |  DoubleQuote   |
  * +--------------+       cur_char = "            +----------------+
- *    |   ⬆︎          Double double-quote (""),
- *    |   |          AKA, Escaped double quote
- *    |___|
- *   Any character, except double quote "
+ *    |   ⬆︎          escaped double-quote (""),
+ *    |   |
+ *    +---+
+ *   Any character except double quote "
  */
 
 std::vector<std::string_view> CsvFileInput::parseRecord(const std::string_view& record) {
     auto state = ParsingState::notQuoted;
 
     const size_t len = record.length();
-    size_t i = 0;
-    size_t left = 0;
-    std::vector<std::string_view> fieldStart;
+    size_t curPos = 0;
+    size_t fieldStart = 0;
+    std::vector<std::string_view> fields;
 
-    while (i <= len) {
+    while (curPos <= len) {
         switch (state) {
             case ParsingState::notQuoted:
-                if (i == len || record[i] == ',') {  // End of Field.
-                    fieldStart.emplace_back(record.substr(left, i - left));
-                    left = i + 1;
-                } else if (record[i] == '\"') {  // Beginning of quoted field.
+                if (curPos == len || record[curPos] == ',') {
+                    // End of Field.
+                    fields.emplace_back(record.substr(fieldStart, curPos - fieldStart));
+                    fieldStart = curPos + 1;
+                } else if (record[curPos] == '\"') {
+                    // Beginning of quoted field.
                     state = ParsingState::quoted;
                 }
                 break;
             case ParsingState::quoted:
-                if (record[i] == '\"') {
-                    state = ParsingState::checkForDoubleDoubleQuote;
+                if (record[curPos] == '\"') {
+                    state = ParsingState::checkForEscapedDoubleQuote;
                 }
                 break;
-            case ParsingState::checkForDoubleDoubleQuote:
-                if (record[i] == '\"') {  // Escaping double quote.
+            case ParsingState::checkForEscapedDoubleQuote:
+                if (record[curPos] == '\"') {
+                    // Escaping double quote.
                     state = ParsingState::quoted;
-                } else {  // End of field, discard the surrounding double quotes
-                    fieldStart.emplace_back(record.substr(left + 1, i - 2 - left));
+                } else {
+                    // End of field, discard the surrounding double quotes.
+                    fields.emplace_back(record.substr(fieldStart + 1, curPos - 2 - fieldStart));
                     state = ParsingState::notQuoted;
-                    left = i + 1;
+                    fieldStart = curPos + 1;
                 }
                 break;
         }
-        i++;
+        curPos++;
     }
 
-    return fieldStart;
+    return fields;
 }
 
 }  // namespace mongo
