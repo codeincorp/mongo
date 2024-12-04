@@ -41,14 +41,27 @@ idl_generator(
     ],
 )
 
+idl_generator(
+    name = "external_data_source_options_gen",
+    src = "external_data_source_options.idl",
+    hdrs = [
+        "external_data_source.h"
+    ],
+    deps = [
+        "//src/mongo/db:basic_types_gen",
+    ],
+)
+
 mongo_cc_library(
     name = "collection_options",
     srcs = [
         "clustered_collection_options_gen",
         "clustered_collection_util.cpp",
+        "external_data_source_options_gen",
         "collection_options.cpp",
         "collection_options_gen",
         "collection_options_validation.cpp",
+        "external_data_source.cpp",
         "//src/mongo/db/commands:create_command_validation.h",
     ],
     hdrs = [
@@ -281,9 +294,8 @@ mongo_cc_library(
     hdrs = [
         "database.h",
         "database_holder.h",
-        "virtual_collection_options.h",
+        "external_data_source_options_gen",
         "//src/mongo/db:dbcommands_gen",
-        "//src/mongo/db/pipeline:external_data_source_option_gen",
     ],
     deps = [
         "//src/mongo:base",

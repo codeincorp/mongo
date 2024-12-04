@@ -42,7 +42,7 @@
 #include "mongo/base/status_with.h"
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/timestamp.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/record_id.h"
 #include "mongo/db/storage/damage_vector.h"
 #include "mongo/db/storage/key_format.h"
