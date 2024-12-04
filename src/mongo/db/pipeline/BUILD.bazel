@@ -177,7 +177,7 @@ mongo_cc_library(
         "transformer_interface.h",
         "//src/mongo/db:dbcommands_gen",
         "//src/mongo/db/catalog:database.h",
-        "//src/mongo/db/catalog:virtual_collection_options.h",
+        "//src/mongo/db/catalog:external_data_source_options_gen",
     ],
     deps = [
         ":docs_needed_bounds",  # TODO(SERVER-93876): Remove.
@@ -239,25 +239,17 @@ idl_generator(
     src = "aggregate_command.idl",
     deps = [
         ":exchange_spec_gen",
-        ":external_data_source_option_gen",
         ":legacy_runtime_constants_gen",
         "//src/mongo/crypto:fle_field_schema_gen",
         "//src/mongo/db:basic_types_gen",
         "//src/mongo/db:write_concern_options_gen",
         "//src/mongo/db/auth:access_checks_gen",
         "//src/mongo/db/auth:action_type_gen",
+        "//src/mongo/db/catalog:external_data_source_options_gen",
         "//src/mongo/db/query:hint_gen",
         "//src/mongo/db/query/client_cursor:cursor_response_gen",
         "//src/mongo/db/query/query_settings:query_settings_gen",
         "//src/mongo/idl:generic_argument_gen",
-    ],
-)
-
-idl_generator(
-    name = "external_data_source_option_gen",
-    src = "external_data_source_option.idl",
-    deps = [
-        "//src/mongo/db:basic_types_gen",
     ],
 )
 
@@ -277,7 +269,6 @@ mongo_cc_library(
         "name_expression_parser.cpp",
         "query_request_conversion.cpp",
         ":aggregate_command_gen",
-        ":external_data_source_option_gen",
         ":name_expression_gen",
     ],
     hdrs = [
@@ -289,6 +280,7 @@ mongo_cc_library(
         "//src/mongo/db:server_base",
         "//src/mongo/db/auth:security_token",  # TODO(SERVER-93876): Remove.
         "//src/mongo/db/exec/document_value",  # TODO(SERVER-93876): Remove.
+        "//src/mongo/db/catalog:collection_options",
         "//src/mongo/db/query:command_request_response",
         "//src/mongo/db/query:common_query_enums_and_helpers",
         "//src/mongo/db/query:query_request",  # TODO(SERVER-93876): Remove.

@@ -42,7 +42,7 @@
 #include "mongo/base/error_codes.h"
 #include "mongo/base/string_data.h"
 #include "mongo/bson/util/builder.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/storage/record_data.h"
 #include "mongo/db/storage/record_store.h"
 #include "mongo/platform/compiler.h"
@@ -99,7 +99,8 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
                 readBytes = _streamReader->readBytes(remBytes, (_buffer.get() + _bufEnd));
                 if (MONGO_unlikely(readBytes < remBytes)) {
                     uasserted(6968303,
-                              "Truncated file: {}"_format(_vopts.dataSources[_streamIdx].url));
+                              "Truncated file: {}"_format(
+                                  _vopts.getDataSources()[_streamIdx].getUrl().toString()));
                     return boost::none;
                 }
                 _bufEnd += readBytes;
@@ -114,7 +115,8 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
                     readBytes = _streamReader->readBytes(remBytes, (_buffer.get() + _bufEnd));
                     if (MONGO_unlikely(readBytes < remBytes)) {
                         uasserted(6968304,
-                                  "Truncated file: {}"_format(_vopts.dataSources[_streamIdx].url));
+                                  "Truncated file: {}"_format(
+                                      _vopts.getDataSources()[_streamIdx].getUrl().toString()));
                         return boost::none;
                     }
                     _bufEnd += readBytes;
@@ -131,7 +133,9 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
                 return boost::none;
             }
             if (MONGO_unlikely(_bufEnd < kSizeSize)) {
-                uasserted(6968305, "Truncated file: {}"_format(_vopts.dataSources[_streamIdx].url));
+                uasserted(6968305,
+                          "Truncated file: {}"_format(
+                              _vopts.getDataSources()[_streamIdx].getUrl().toString()));
                 return boost::none;
             }
             // Not used again: availBytes += _bufEnd;
@@ -142,7 +146,9 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
                     expandBuffer(bsonSize);
                     continue;
                 }
-                uasserted(6968306, "Truncated file: {}"_format(_vopts.dataSources[_streamIdx].url));
+                uasserted(6968306,
+                          "Truncated file: {}"_format(
+                              _vopts.getDataSources()[_streamIdx].getUrl().toString()));
                 return boost::none;
             }
         }
@@ -166,12 +172,11 @@ boost::optional<Record> MultiBsonStreamCursor::nextFromCurrentStream() {
  */
 std::unique_ptr<InputStream<NamedPipeInput>> MultiBsonStreamCursor::getInputStream(
     const std::string& url) {
-    auto filePathPos = url.find(ExternalDataSourceMetadata::kUrlProtocolFile.toString());
+    auto filePathPos = url.find(kUrlProtocolFile.toString());
     tassert(
         ErrorCodes::BadValue, "Invalid file url: {}"_format(url), filePathPos != std::string::npos);
 
-    auto filePathStr =
-        url.substr(filePathPos + ExternalDataSourceMetadata::kUrlProtocolFile.size());
+    auto filePathStr = url.substr(filePathPos + kUrlProtocolFile.size());
 
     return std::make_unique<InputStream<NamedPipeInput>>(filePathStr);
 }
@@ -188,7 +193,7 @@ boost::optional<Record> MultiBsonStreamCursor::next() {
         }
         ++_streamIdx;
         if (_streamIdx < _numStreams) {
-            _streamReader = getInputStream(_vopts.dataSources[_streamIdx].url);
+            _streamReader = getInputStream(_vopts.getDataSources()[_streamIdx].getUrl().toString());
         }
     }
     return boost::none;

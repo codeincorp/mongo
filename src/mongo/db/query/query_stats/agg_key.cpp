@@ -44,9 +44,9 @@
 
 #include "mongo/crypto/fle_field_schema_gen.h"
 #include "mongo/db/basic_types_gen.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/database_name.h"
 #include "mongo/db/pipeline/exchange_spec_gen.h"
-#include "mongo/db/pipeline/external_data_source_option_gen.h"
 #include "mongo/db/pipeline/pipeline.h"
 #include "mongo/db/query/query_shape/agg_cmd_shape.h"
 #include "mongo/db/query/query_shape/query_shape.h"

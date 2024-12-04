@@ -19,8 +19,7 @@ mongo_cc_library(
         "external_record_store.h",
         "input_stream.h",
         "multi_bson_stream_cursor.h",
-        "//src/mongo/db/catalog:virtual_collection_options.h",
-        "//src/mongo/db/pipeline:external_data_source_option_gen",
+        "//src/mongo/db/catalog:external_data_source_options_gen",
     ],
     deps = [
         "//src/mongo/db/storage:record_store_base",
@@ -36,6 +35,7 @@ mongo_cc_unit_test(
     tags = ["mongo_unittest_fourth_group"],
     deps = [
         ":virtual_collection",
+        "//src/mongo/db/catalog:collection_options",
         "//src/mongo/db/storage:record_store_base",
     ],
 )
