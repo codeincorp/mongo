@@ -28,6 +28,8 @@
 
 global:
     cpp_namespace: "mongo"
+    cpp_includes:
+      - "mongo/db/catalog/external_data_source.h"
 
 imports:
     - "mongo/db/basic_types.idl"
@@ -54,6 +56,8 @@ structs:
                 type: string
                 optional: false
                 stability: unstable
+                validator:
+                    callback: "mongo::validateUrl"
             storageType:
                 description: "Storage type for an external data source"
                 type: StorageType
@@ -78,4 +82,39 @@ structs:
                 type: array<ExternalDataSourceInfo>
                 optional: false
                 stability: unstable
-
+    VirtualCollectionOptions:
+        description: "Options for a virtual collection."
+        strict: true
+        fields:
+            dataSources:
+                description: "Specification for external data sources."
+                type: array<ExternalDataSourceInfo>
+                optional: false
+                stability: unstable
+            metadataUrl:
+                description: "Url for metadata on an external collection"
+                type: string
+                optional: true
+                stability: unstable
+            strict:
+                description:
+                    "Flag to indicate whether the external collection must follow the schema strictly"
+                type: safeBool
+                optional: false
+                stability: unstable
+                default: false
+            threshold:
+                description: |
+                    The threshold that the external collection reader should stop processing
+                    when the input data does not follow the schema specified in the metadata file
+                    in strict mode.
+                type: int
+                optional: true
+                stability: unstable
+            durable:
+                description:
+                    "Flag to indicate whether the external collection must be durable in catalog"
+                type: safeBool
+                optional: false
+                stability: unstable
+                default: false

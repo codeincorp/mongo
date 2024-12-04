@@ -37,7 +37,7 @@
 #include "mongo/base/status.h"
 #include "mongo/bson/bsonobj.h"
 #include "mongo/db/catalog/collection_options.h"
-#include "mongo/db/catalog/virtual_collection_options.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/commands/create_gen.h"
 #include "mongo/db/database_name.h"
 #include "mongo/db/namespace_string.h"
