@@ -29,7 +29,7 @@ export const $config = (function() {
         return {
             localCollObjs: localCollObjs,
             foreignCollObjs: foreignCollObjs,
-            kDefaultPipePath: "",
+            kDefaultFilePath: "",
             pipeName1: "",
             pipeName2: "",
             vcollName1: "",
@@ -42,7 +42,7 @@ export const $config = (function() {
 
         function init(db, collName) {
             const hostInfo = assert.commandWorked(db.hostInfo());
-            this.kDefaultPipePath = (() => {
+            this.kDefaultFilePath = (() => {
                 return hostInfo.os.type == "Windows" ? "//./pipe/" : "/tmp/";
             })();
 
@@ -59,9 +59,9 @@ export const $config = (function() {
             const pipeName2 = this.pipeName2 + "_scan";
 
             _writeTestPipeObjects(
-                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultPipePath);
+                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultFilePath);
             _writeTestPipeObjects(
-                pipeName2, this.localCollObjs.length, this.localCollObjs, this.kDefaultPipePath);
+                pipeName2, this.localCollObjs.length, this.localCollObjs, this.kDefaultFilePath);
 
             const expectedRes = this.localCollObjs.concat(this.localCollObjs);
 
@@ -99,7 +99,7 @@ export const $config = (function() {
             const pipeName1 = this.pipeName1 + "_match";
 
             _writeTestPipeObjects(
-                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultPipePath);
+                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultFilePath);
 
             const expectedRes = this.localCollObjs.filter(obj => obj.g < 50);
 
@@ -131,9 +131,9 @@ export const $config = (function() {
             const pipeName2 = this.pipeName2 + "_unionWith";
 
             _writeTestPipeObjects(
-                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultPipePath);
+                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultFilePath);
             _writeTestPipeObjects(
-                pipeName2, this.localCollObjs.length, this.localCollObjs, this.kDefaultPipePath);
+                pipeName2, this.localCollObjs.length, this.localCollObjs, this.kDefaultFilePath);
 
             const expectedRes = this.localCollObjs.concat(this.localCollObjs);
 
@@ -174,7 +174,7 @@ export const $config = (function() {
             const pipeName1 = this.pipeName1 + "_group";
 
             _writeTestPipeObjects(
-                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultPipePath);
+                pipeName1, this.localCollObjs.length, this.localCollObjs, this.kDefaultFilePath);
 
             const countPerGroup = [];
             for (let i = 0; i < 100; ++i) {

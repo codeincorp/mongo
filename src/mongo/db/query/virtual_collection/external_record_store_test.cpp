@@ -159,7 +159,7 @@ TEST_F(ExternalRecordStoreTest, NamedPipeBasicRead) {
     // Gives some time to the producer so that it can initialize a named pipe.
     pw.wait();
 
-    auto inputStream = InputStream<NamedPipeInput>(pipePath);
+    auto inputStream = InputStreamImpl<NamedPipeInput>(pipePath);
     for (int i = 0; i < 100; ++i) {
         int nRead = inputStream.readBytes(count, _buffer);
         ASSERT_EQ(nRead, count) << "Failed to read data up to {} bytes"_format(count);
@@ -185,7 +185,7 @@ TEST_F(ExternalRecordStoreTest, NamedPipeReadPartialData) {
     // Gives some time to the producer so that it can initialize a named pipe.
     pw.wait();
 
-    auto inputStream = InputStream<NamedPipeInput>(pipePath);
+    auto inputStream = InputStreamImpl<NamedPipeInput>(pipePath);
     // Requests more data than the pipe contains. Should only get the bytes it does contain.
     int nRead = inputStream.readBytes(kBufferSize, _buffer);
     ASSERT_EQ(nRead, count) << "Expected nRead == {} but got {}"_format(count, nRead);
@@ -215,7 +215,7 @@ TEST_F(ExternalRecordStoreTest, NamedPipeReadUntilProducerDone) {
     // Gives some time to the producer so that it can initialize a named pipe.
     pw.wait();
 
-    auto inputStream = InputStream<NamedPipeInput>(pipePath);
+    auto inputStream = InputStreamImpl<NamedPipeInput>(pipePath);
     auto nReceived = 0;
     while (true) {
         int nRead = inputStream.readBytes(count, _buffer);
@@ -236,7 +236,7 @@ TEST_F(ExternalRecordStoreTest, NamedPipeReadUntilProducerDone) {
 TEST_F(ExternalRecordStoreTest, NamedPipeOpenNonExisting) {
     ASSERT_THROWS_CODE(
         [] {
-            (void)std::make_unique<InputStream<NamedPipeInput>>(nonExistingPath);
+            (void)std::make_unique<InputStreamImpl<NamedPipeInput>>(nonExistingPath);
         }(),
         DBException,
         ErrorCodes::FileNotOpen);

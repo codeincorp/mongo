@@ -19,6 +19,7 @@ mongo_cc_library(
         "input_object.h",
         "io_error_message.h",
         "named_pipe.h",
+        "//src/mongo/db/storage:default_path.h",
     ],
     deps = [
         "//src/mongo/db/query:query_knobs",
