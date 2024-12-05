@@ -27,6 +27,23 @@ mongo_cc_library(
     ],
 )
 
+mongo_cc_library(
+    name = "csv_file",
+    srcs = [
+        "csv_file.cpp",
+    ],
+    hdrs = [
+        "csv_file.h",
+        "//src/mongo/db/query:query_knobs_gen",
+        "//src/mongo/transport/named_pipe:input_object.h",
+        "//src/mongo/transport/named_pipe:io_error_message.h",
+    ],
+    deps = [
+        "//src/mongo/db/query:query_knobs",
+        "//src/mongo/db:server_base",
+    ],
+)
+
 mongo_cc_unit_test(
     name = "virtual_collection_test",
     srcs = [
@@ -37,5 +54,17 @@ mongo_cc_unit_test(
         ":virtual_collection",
         "//src/mongo/db/catalog:collection_options",
         "//src/mongo/db/storage:record_store_base",
+    ],
+)
+
+mongo_cc_unit_test(
+    name = "csv_file_test",
+    srcs = [
+        "csv_file_test.cpp",
+    ],
+    tags = ["mongo_unittest_fourth_group"],
+    deps = [
+        ":csv_file",
+        "//src/mongo/db:server_base",
     ],
 )

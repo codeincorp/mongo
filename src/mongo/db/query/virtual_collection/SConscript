@@ -8,3 +8,9 @@ env.CppUnitTest(
     source=[],
     LIBDEPS=[],
 )
+
+env.CppUnitTest(
+    target="csv_file_test",
+    source=[],
+    LIBDEPS=[],
+)
