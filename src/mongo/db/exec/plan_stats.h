@@ -312,7 +312,7 @@ struct CollectionScanStats : public SpecificStats {
     // The end location of a reverse scan and start location for a forward scan.
     boost::optional<RecordIdBound> maxRecord;
 
-    mutable boost::optional<BSONObj> _recordStoreStats;
+    mutable boost::optional<BSONObj> _ioStats;
 };
 
 struct CountStats : public SpecificStats {
