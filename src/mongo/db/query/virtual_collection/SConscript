@@ -25,3 +25,13 @@ env.CppUnitTest(
         "$BUILD_DIR/mongo/db/server_base",
     ],
 )
+
+env.Benchmark(
+    target="csv_bm",
+    source=[
+        "csv_bm.cpp",
+    ],
+    LIBDEPS=[
+        "$BUILD_DIR/mongo/db/query/virtual_collection/csv_file",
+    ],
+)
