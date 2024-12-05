@@ -34,7 +34,7 @@
 #include <string>
 #include <vector>
 
-#include "mongo/db/storage/csv_file_io_stats.h"
+#include "mongo/db/query/virtual_collection/csv_file_io_stats.h"
 #include "mongo/db/storage/io_stats.h"
 #include "mongo/transport/named_pipe/input_object.h"
 
