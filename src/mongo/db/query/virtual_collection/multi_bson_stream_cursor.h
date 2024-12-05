@@ -49,14 +49,11 @@
 namespace mongo {
 class MultiBsonStreamCursor : public SeekableRecordCursor {
 public:
-    MultiBsonStreamCursor(const VirtualCollectionOptions& vopts)
-        : _numStreams(vopts.getDataSources().size()), _vopts(vopts) {
-        using namespace fmt::literals;
-        tassert(6968310, "_numStreams {} <= 0"_format(_numStreams), _numStreams > 0);
-        _streamReader = getInputStream();
-    }
+    MultiBsonStreamCursor(const VirtualCollectionOptions& vopts);
 
     boost::optional<Record> next() override;
+
+    boost::optional<BSONObj> getStats() const override;
 
     // This block of overrides are all essentially no-ops as they are for lock yielding but the
     // external data source is read-only.
@@ -117,5 +114,7 @@ private:
     std::unique_ptr<InputStream> _streamReader = nullptr;
 
     const VirtualCollectionOptions& _vopts;  // metadata containing the pipe URLs
+
+    std::shared_ptr<InputStreamStats> _stats;
 };
 }  // namespace mongo
