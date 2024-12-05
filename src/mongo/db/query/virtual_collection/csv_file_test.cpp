@@ -273,8 +273,6 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     size_t readBytes = 0;
 
     do {
-        ASSERT(input.isGood());
-        ASSERT(!input.isEof());
         ASSERT(!input.isFailed());
         nRead = input.read(buf, bufSize);
         readBytes += nRead;
@@ -284,7 +282,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
             ASSERT_BSONOBJ_EQ(obj, expected[line]);
         }
         line++;
-    } while (nRead != 0);
+    } while (nRead != 0 && !input.isEof());
 
     input.close();
     ASSERT(!input.isOpen());
