@@ -1110,8 +1110,8 @@ ExitCode _initAndListen(ServiceContext* serviceContext) {
             LOGV2_ERROR(6968200, "'enableComputeMode' can be used only in standalone server");
             exitCleanly(ExitCode::badOptions);
         }
-        if (externalPipeDir != "" && externalPipeDir.find("..") != std::string::npos) {
-            LOGV2_ERROR(7001102, "'externalPipeDir' must not have '..'");
+        if (externalFileDir != "" && externalFileDir.find("..") != std::string::npos) {
+            LOGV2_ERROR(7001102, "'externalFileDir' must not have '..'");
             exitCleanly(ExitCode::badOptions);
         }
 
@@ -1122,11 +1122,11 @@ ExitCode _initAndListen(ServiceContext* serviceContext) {
             "this mode under an isolated environment and execute the server under a user with "
             "restricted access permissions");
     } else {
-        if (externalPipeDir != "") {
+        if (externalFileDir != "") {
             LOGV2_WARNING_OPTIONS(
                 7001103,
                 {logv2::LogTag::kStartupWarnings},
-                "'externalPipeDir' is effective only when enableComputeMode=true");
+                "'externalFileDir' is effective only when enableComputeMode=true");
         }
     }
 
