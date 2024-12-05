@@ -656,7 +656,7 @@ BSONObj ReadTestPipes(const BSONObj& args, void* unused) {
  *   "3": OPTIONAL number; upper bound on size of "string" field in generated object (default 2048)
  *     capped at 16,750,000 (slightly less than BSON object maximum of 16 MB)
  *   "4": OPTIONAL string; absolute path to the directory where named pipes exist. If not given,
- *        'kDefaultPipePath' is used.
+ *        'kDefaultFilePath' is used.
  */
 BSONObj WriteTestPipe(const BSONObj& args, void* unused) {
     int nFields = args.nFields();
@@ -708,7 +708,7 @@ BSONObj WriteTestPipe(const BSONObj& args, void* unused) {
                     pipeDirElem.type() == BSONType::String);
             return pipeDirElem.str();
         } else {
-            return kDefaultPipePath.toString();
+            return kDefaultFilePath.toString();
         }
     }();
 
@@ -744,7 +744,7 @@ int32_t readBytes(char* buf, int32_t count, std::ifstream& ifs) {
  *   "1": number; number of BSON objects to write to the pipe
  *   "2": string; relative path to the file of BSON objects; these must fit in memory
  *   "3": OPTIONAL string; absolute path to the directory where named pipes exist. If not given,
- *        'kDefaultPipePath' is used.
+ *        'kDefaultFilePath' is used.
  *
  * async: true, write asynchronously; false, write synchronously
  */
@@ -776,7 +776,7 @@ BSONObj writeTestPipeBsonFileHelper(const BSONObj& args, bool async) {
                     pipeDirElem.type() == BSONType::String);
             return pipeDirElem.str();
         } else {
-            return kDefaultPipePath.toString();
+            return kDefaultFilePath.toString();
         }
     }();
 
@@ -855,7 +855,7 @@ BSONObj WriteTestPipeBsonFileSync(const BSONObj& args, void* unused) {
  *   "1": number; number of BSON objects to write to the pipe
  *   "2": BSONArray; array of objects to round-robin write to the pipe
  *   "3": OPTIONAL string; absolute path to the directory where named pipes exist. If not given,
- *        'kDefaultPipePath' is used.
+ *        'kDefaultFilePath' is used.
  *   "4": OPTIONAL bool; persist the pipe between executions of this function. Defaults to false.
  * The optional absolute path must be given to use this parameter.
  */
@@ -887,7 +887,7 @@ BSONObj WriteTestPipeObjects(const BSONObj& args, void* unused) {
                     pipeDirElem.type() == BSONType::String);
             return pipeDirElem.str();
         } else {
-            return kDefaultPipePath.toString();
+            return kDefaultFilePath.toString();
         }
     }();
 
