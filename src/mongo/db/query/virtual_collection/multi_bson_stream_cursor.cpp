@@ -177,6 +177,14 @@ std::string getPath(const std::string& url) {
 }
 }  // namespace
 
+MultiBsonStreamCursor::MultiBsonStreamCursor(const VirtualCollectionOptions& vopts)
+    : _numStreams(vopts.getDataSources().size()), _vopts(vopts) {
+    using namespace fmt::literals;
+    tassert(6968310, "_numStreams {} <= 0"_format(_numStreams), _numStreams > 0);
+    _stats = CsvFileInput::createStats();
+    _streamReader = getInputStream();
+}
+
 /**
  * Returns an input stream corresponding to the current '_streamIdx'.
  *
@@ -193,7 +201,7 @@ std::unique_ptr<InputStream> MultiBsonStreamCursor::getInputStream() {
                dataSource.getFileType() == FileTypeEnum::csv) {
         uassert(200000600, "Metadata URL is required for CSV file", _vopts.getMetadataUrl());
         auto metadataPath = getPath(_vopts.getMetadataUrl()->toString());
-        return std::make_unique<InputStreamImpl<CsvFileInput>>(filePathStr, metadataPath);
+        return std::make_unique<InputStreamImpl<CsvFileInput>>(_stats, filePathStr, metadataPath);
     } else {
         uasserted(200000600, "Support only pipe/bson or file/csv");
     }
@@ -214,6 +222,11 @@ boost::optional<Record> MultiBsonStreamCursor::next() {
             _streamReader = getInputStream();
         }
     }
+
     return boost::none;
+}
+
+boost::optional<BSONObj> MultiBsonStreamCursor::getStats() const {
+    return _stats->toBson();
 }
 }  // namespace mongo

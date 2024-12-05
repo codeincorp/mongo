@@ -1,0 +1,1 @@
+kString/string,number/int32,distant/int64,quadruple/double,RightOrWrong/bool,identifier/oid,signOn/date

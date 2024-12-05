@@ -38,6 +38,16 @@
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 namespace mongo {
+struct InputStreamStats {
+    /**
+     * Sometimes CsvFileInput can fail to read the data due to discrepancy between metadata and
+     * actual data(Ex: String data at int32 field). toBson returns BSONObj that
+     * summarizes how many times each kind of error has occured during the read.
+     */
+    virtual boost::optional<BSONObj> toBson() const = 0;
+    virtual ~InputStreamStats() {}
+};
+
 class InputStream {
 public:
     /**
