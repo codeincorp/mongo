@@ -50,7 +50,7 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
         "unixFormat": NumberLong(9),
         "dosFormat": NumberLong(0),
         "totalErrorCount": NumberLong(28),
-        "inputSize": NumberLong(764),
+        "inputSize": NumberLong(733),
         "outputSize": NumberLong(1036),
         "bsonsReturned": NumberLong(9)
     };
@@ -96,7 +96,7 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
         "unixFormat": NumberLong(18),
         "dosFormat": NumberLong(0),
         "totalErrorCount": NumberLong(59),
-        "inputSize": NumberLong(1339),
+        "inputSize": NumberLong(1306),
         "outputSize": NumberLong(1919),
         "bsonsReturned": NumberLong(18)
     };
@@ -146,7 +146,7 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
             "unixFormat": NumberLong(9),
             "dosFormat": NumberLong(0),
             "totalErrorCount": NumberLong(28),
-            "inputSize": NumberLong(764),
+            "inputSize": NumberLong(733),
             "outputSize": NumberLong(1036),
             "bsonsReturned": NumberLong(9)
         }
@@ -212,7 +212,7 @@ copyFile("jstests/noPassthrough/virtual/" + metadataFileName, metadataFilePath);
             "unixFormat": NumberLong(18),
             "dosFormat": NumberLong(0),
             "totalErrorCount": NumberLong(59),
-            "inputSize": NumberLong(1339),
+            "inputSize": NumberLong(1306),
             "outputSize": NumberLong(1919),
             "bsonsReturned": NumberLong(18)
         }
