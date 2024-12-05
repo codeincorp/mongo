@@ -26,3 +26,20 @@ mongo_cc_library(
         "//src/mongo/transport/named_pipe",
     ],
 )
+
+mongo_cc_library(
+    name = "csv_file",
+    srcs = [
+        "csv_file.cpp",
+    ],
+    hdrs = [
+        "csv_file.h",
+        "//src/mongo/db/query:query_knobs_gen",
+        "//src/mongo/transport/named_pipe:input_object.h",
+        "//src/mongo/transport/named_pipe:io_error_message.h",
+    ],
+    deps = [
+        "//src/mongo/db/query:query_knobs",
+        "//src/mongo/db:server_base",
+    ],
+)
