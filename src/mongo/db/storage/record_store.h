@@ -190,6 +190,10 @@ public:
      * positioned cursors across commands.
      */
     virtual void setSaveStorageCursorOnDetachFromOperationContext(bool) = 0;
+
+    virtual boost::optional<BSONObj> getStats() const {
+        return boost::none;
+    }
 };
 
 /**
