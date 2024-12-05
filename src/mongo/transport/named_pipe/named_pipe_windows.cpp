@@ -44,7 +44,7 @@ using namespace fmt::literals;
 
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kTest
 
-// On Windows, 'externalPipeDir' parameter is not supported and so the first argument is ignored and
+// On Windows, 'externalFileDir' parameter is not supported and so the first argument is ignored and
 // instead, 'kDefaultPipePath' is used. closePipe and openPipe are unused on Windows.
 NamedPipeOutput::NamedPipeOutput(const std::string&,
                                  const std::string& pipeRelativePath,

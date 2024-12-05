@@ -38,8 +38,6 @@
 
 namespace mongo {
 
-static constexpr auto kDefaultPipePath = "/tmp/"_sd;
-
 enum class CsvFieldType { kBool, kInt32, kInt64, kDate, kOid, kDouble, kString };
 
 struct FieldInfo {
