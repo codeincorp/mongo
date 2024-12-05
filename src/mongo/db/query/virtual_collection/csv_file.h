@@ -47,6 +47,9 @@ struct FieldInfo {
     CsvFieldType fieldType;
 };
 
+// State machine to assist parsing record into fields.
+enum class ParsingState { notQuoted, quoted, checkForEscapedDoubleQuote };
+
 using Metadata = std::vector<FieldInfo>;
 
 class CsvFileInput : public StreamableInput {
@@ -92,16 +95,21 @@ private:
      */
     Metadata getMetadata(const std::vector<std::string_view>& header);
 
-    std::string_view getLine();
+    /**
+     * Returns each record which is compliant with RFC4180. This method handles the double quote
+     * pair and the escaped double quote inside a quoted field. This greatly simplifies the
+     * implementation of parseRecord().
+     */
+    std::string_view getRecord();
 
     /**
      * Reads each line read from csv file (specified by fileAbsolutePath) and parse it into each
-     * field as string.
+     * field as string, according to RFC 4180: https://www.rfc-editor.org/rfc/rfc4180
      *
      * @param line read from csv, "data1,data2,data3..."
      * @return: vector containing each field as string, {"data1","data2","data3"...}.
      */
-    std::vector<std::string_view> parseLine(const std::string_view& line);
+    std::vector<std::string_view> parseRecord(const std::string_view& line);
 
     template <CsvFieldType T>
     void appendTo(BSONObjBuilder& builder,
@@ -122,6 +130,9 @@ private:
     size_t _offset = 0;
     Metadata _metadata;
     std::unique_ptr<CsvFileIoStats> _ioStats;
+    // A temporary buffer to handle escaped double quote in a quoted string field value. Lazily
+    // allocated.
+    std::unique_ptr<char[]> _copyStr = nullptr;
 };
 
 }  // namespace mongo

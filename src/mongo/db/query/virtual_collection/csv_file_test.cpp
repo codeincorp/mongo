@@ -12,7 +12,7 @@ using namespace fmt::literals;
 class CsvFileInputTest : public unittest::Test {
 protected:
     void setUp() override {
-        system("cp -rn src/mongo/db/query/virtual_collection/csv_test /tmp/");
+        system("cp -rf src/mongo/db/query/virtual_collection/csv_test /tmp/");
     }
 };
 
@@ -36,7 +36,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 13,
     boolean: true,
     decimal: 1.2,
-    textField: "Plummer",
+    textField: "Plummer\"\"\"",
     docIdentifier: ObjectId("66075df233ce5deb424257fb"),
     moment:{$date:"2017-08-06T13:13:59.010+07:00"},
     billionaire: 120000000000
@@ -156,7 +156,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 123,
     boolean: true,
     decimal: 0.111,
-    textField: "Hikaru",
+    textField: "\"Hikaru\",the take take",
     docIdentifier: ObjectId("660a04910ea7913a8fced3f8"),
     moment: {$date:"2004-04-04T19:07:21.388-02:00"},
     billionaire: 77000000000
@@ -196,7 +196,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
     field1: 102,
     boolean: false,
     decimal: 0.123,
-    textField: "SheldonCooper",
+    textField: "Sheldon\"Cooper",
     docIdentifier: ObjectId("66abcf940ea793f3dfceecae"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
     billionaire: 77111123456
@@ -246,7 +246,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 63,
     boolean: true,
-    decimal: -9223372036854774784,
+    decimal: -9223372036854774784.0,
     textField: "IstanU",
     docIdentifier: ObjectId("12abc6edf01aab5ff8d0feca"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
@@ -256,8 +256,8 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 {
     field1: 93,
     boolean: false,
-    decimal: 9223372036854773760,
-    textField: "Arresto Momentum",
+    decimal: 9223372036854773760.0,
+    textField: "\"Arresto Momentum\"",
     docIdentifier: ObjectId("19ec449399a7cbadffcff3fe"),
     moment: {$date: "2018-01-30T23:00:01.009Z"},
     billionaire: 77000000000
@@ -289,7 +289,7 @@ TEST_F(CsvFileInputTest, CsvBasicRead) {
 
     std::unique_ptr<CsvFileIoStats> csvFileIoStats{
         dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
-    ASSERT_EQ(2307, csvFileIoStats->_inputSize);
+    ASSERT_EQ(2275, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(24, csvFileIoStats->_bsonsReturned);
 }
@@ -413,7 +413,7 @@ TEST_F(CsvFileInputTest, AbsentField) {
 
     std::unique_ptr<CsvFileIoStats> csvFileIoStats{
         dynamic_cast<CsvFileIoStats*>(input.releaseIoStats().release())};
-    ASSERT_EQ(618, csvFileIoStats->_inputSize);
+    ASSERT_EQ(598, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(11, csvFileIoStats->_bsonsReturned);
 }
@@ -434,11 +434,11 @@ TEST_F(CsvFileInputTest, CollectInvalidOID) {
     std::unique_ptr<CsvFileIoStats> csvFileIoStats{
         dynamic_cast<CsvFileIoStats*>(invalidOid.releaseIoStats().release())};
     ASSERT_NE(csvFileIoStats, nullptr);
-    ASSERT_EQ(csvFileIoStats->_invalidOid, 13);
+    ASSERT_EQ(csvFileIoStats->_invalidOid, 14);
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 14);
     ASSERT_EQ(csvFileIoStats->_invalidDate, 14);
-    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 41);
-    ASSERT_EQ(721, csvFileIoStats->_inputSize);
+    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 42);
+    ASSERT_EQ(671, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(14, csvFileIoStats->_bsonsReturned);
 }
@@ -459,10 +459,11 @@ TEST_F(CsvFileInputTest, CollectInvalidInt32) {
     std::unique_ptr<CsvFileIoStats> csvFileIoStats{
         dynamic_cast<CsvFileIoStats*>(invalidInt32.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidInt32, 6);
-    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 6);
-    ASSERT_EQ(90, csvFileIoStats->_inputSize);
+    ASSERT_EQ(csvFileIoStats->_incompleteConversionToNumeric, 3);
+    ASSERT_EQ(csvFileIoStats->_totalErrorCount, 9);
+    ASSERT_EQ(114, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
-    ASSERT_EQ(6, csvFileIoStats->_bsonsReturned);
+    ASSERT_EQ(9, csvFileIoStats->_bsonsReturned);
 }
 
 TEST_F(CsvFileInputTest, CollectInvalidDate) {
@@ -504,7 +505,7 @@ TEST_F(CsvFileInputTest, CollectInvalidInt64) {
         dynamic_cast<CsvFileIoStats*>(invalidInt64.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidInt64, 5);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 5);
-    ASSERT_EQ(48, csvFileIoStats->_inputSize);
+    ASSERT_EQ(51, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(5, csvFileIoStats->_bsonsReturned);
 }
@@ -548,7 +549,7 @@ TEST_F(CsvFileInputTest, CollectInvalidDouble) {
         dynamic_cast<CsvFileIoStats*>(invalidDouble.releaseIoStats().release())};
     ASSERT_EQ(csvFileIoStats->_invalidDouble, 4);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 4);
-    ASSERT_EQ(59, csvFileIoStats->_inputSize);
+    ASSERT_EQ(60, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(4, csvFileIoStats->_bsonsReturned);
 }
@@ -746,7 +747,7 @@ TEST_F(CsvFileInputTest, ErrorCount) {
     ASSERT_EQ(csvFileIoStats->_invalidBoolean, 4);
     ASSERT_EQ(csvFileIoStats->_nonCompliantWithMetadata, 1);
     ASSERT_EQ(csvFileIoStats->_totalErrorCount, 28);
-    ASSERT_EQ(764, csvFileIoStats->_inputSize);
+    ASSERT_EQ(733, csvFileIoStats->_inputSize);
     ASSERT_EQ(readBytes, csvFileIoStats->_outputSize);
     ASSERT_EQ(9, csvFileIoStats->_bsonsReturned);
 
@@ -845,6 +846,172 @@ TEST_F(CsvFileInputTest, ErrorCountOperatorTest) {
     ASSERT_EQ(csvFileIoStats1._nonCompliantWithMetadata, 5);
     ASSERT_EQ(csvFileIoStats1._totalErrorCount, 59);
     ASSERT_NE(&totalErrorStats, &csvFileIoStats1);
+}
+
+TEST_F(CsvFileInputTest, RFCEdgeCases) {
+    CsvFileInput input("csv_test/RFCEdgeCases.csv", "csv_test/RFCEdgeCases.txt");
+    input.open();
+
+    std::vector expected = {
+
+        fromjson(R"(
+{
+    field1: "empty field,american flag,speaker,,",
+    field2: "normal string",
+    field3:  "double quote",
+    field4: "5"
+})"),
+        fromjson(R"(
+{
+    field1: "Tesla",
+    field2: "NVIDIA",
+    field3: "double quote",
+    field4: "MICRO SOFT\nnew lines,\nnew lines,\nnew lines,\n"
+})"),
+        fromjson(R"(
+{
+    field1: "AMA\"\"zon,,,,,,,\"",
+    field2: " AWS",
+    field3: " membership  ",
+    field4: " 34"
+})"),
+        // field1: AMA""zon,,,,,,,"
+        fromjson(R"(
+{
+    field1: "layer,API,",
+    field2: "abstraction and white space",
+    field3: "App l i c ation",
+    field4:  "55"
+})"),
+        fromjson(R"(
+{
+    field1: "Word1,word2, word4,word33,\n\"longitude\",\n\"latitude\",\n\"cable\"",
+    field2: null,
+    field3: "   ",
+    field4: "doll"
+})"),
+        /* field1:
+        Word1,word2, word4,word33,
+        "longitude",
+        "latitude",
+        "cable"
+        */
+        fromjson(R"(
+{
+    field1: "\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\"",
+    field2: "Numberous Lines of texts"
+})"),
+        // field1: "1","2","3","4","5","6","7","8","9","10"
+        fromjson(R"(
+{
+    field1: null,
+    field2: "\"",
+    field3: "GnarUltimate",
+    field4: null
+})"),
+        fromjson(R"(
+{
+    field1: null,
+    field2: null,
+    field3: null,
+    field4: null
+})"),
+        fromjson(R"(
+{
+    field1: "Now I am going to type some texts, which should be regarded as one line\n)"
+                 R"(\"I have come, I have seen, I have conquered!\" - \"Julius Caesar\"\n)"
+                 R"(I am \"having\" a bad headache,\n)"
+                 R"(I don't really like that guy,\n)"
+                 R"(\"Ask, it shall be given to you, Seek, He shall find\", \"Matthew 7:7\"",
+    field2: "F",
+    field3: "102",
+    field4: "0"
+})"),
+        /* field1:
+        Now I am going to type some texts, which should be regarded as one line
+        "I have come, I have seen, I have conquered!" - "Julius Caesar"
+        I am "having" a bad headache,
+        I don't really like that guy,
+        "Ask, it shall be given to you, Seek, He shall find", "Matthew 7:7"
+        */
+        fromjson(R"(
+{
+    field1: null,
+    field2: null,
+    field3: "    alone   ",
+    field4: "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\""
+})"),
+        fromjson(R"(
+{
+    field1: "FALSE",
+    field2: "TRUE",
+    field3: "2017-01-10T12:12:12.111Z",
+    field4: "The last Line"
+})")};
+
+    constexpr int bufSize = 500;
+    char buf[bufSize];
+
+    for (int i = 0; i < 10; i++) {
+        input.read(buf, bufSize);
+        ASSERT_BSONOBJ_EQ(BSONObj(buf), expected[i]);
+    }
+    input.read(buf, bufSize);
+    ASSERT_TRUE(input.isEof());
+    input.close();
+}
+
+TEST_F(CsvFileInputTest, NotCompliantWithRFC) {
+    constexpr int bufSize = 30;
+    char buf[bufSize];
+
+    CsvFileInput input("csv_test/RFC4180Errors/RFCErrors.csv",
+                       "csv_test/RFC4180Errors/RFCErrors.txt");
+    input.open();
+    input.read(buf, bufSize);
+    input.close();
+
+    CsvFileInput input2("csv_test/RFC4180Errors/RFCErrors1.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input2.open();
+    input2.read(buf, bufSize);
+    input2.close();
+
+    CsvFileInput input3("csv_test/RFC4180Errors/RFCErrors2.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input3.open();
+    input3.read(buf, bufSize);
+    input3.close();
+
+    CsvFileInput input4("csv_test/RFC4180Errors/RFCErrors3.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input4.open();
+    input4.read(buf, bufSize);
+    input4.close();
+
+    CsvFileInput input5("csv_test/RFC4180Errors/RFCErrors4.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input5.open();
+    input5.read(buf, bufSize);
+    input5.close();
+
+    CsvFileInput input6("csv_test/RFC4180Errors/RFCErrors5.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input6.open();
+    input6.read(buf, bufSize);
+    input6.close();
+
+    CsvFileInput input7("csv_test/RFC4180Errors/RFCErrors6.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input7.open();
+    input7.read(buf, bufSize);
+    input7.close();
+
+    CsvFileInput input8("csv_test/RFC4180Errors/RFCErrors7.csv",
+                        "csv_test/RFC4180Errors/RFCErrors.txt");
+    input8.open();
+    input8.read(buf, bufSize);
+    input8.close();
 }
 
 }  // namespace mongo
