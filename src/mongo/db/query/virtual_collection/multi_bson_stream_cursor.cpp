@@ -181,7 +181,6 @@ MultiBsonStreamCursor::MultiBsonStreamCursor(const VirtualCollectionOptions& vop
     : _numStreams(vopts.getDataSources().size()), _vopts(vopts) {
     using namespace fmt::literals;
     tassert(6968310, "_numStreams {} <= 0"_format(_numStreams), _numStreams > 0);
-    _stats = CsvFileInput::createStats();
     _streamReader = getInputStream();
 }
 
@@ -201,9 +200,31 @@ std::unique_ptr<InputStream> MultiBsonStreamCursor::getInputStream() {
                dataSource.getFileType() == FileTypeEnum::csv) {
         uassert(200000600, "Metadata URL is required for CSV file", _vopts.getMetadataUrl());
         auto metadataPath = getPath(_vopts.getMetadataUrl()->toString());
-        return std::make_unique<InputStreamImpl<CsvFileInput>>(_stats, filePathStr, metadataPath);
+        return std::make_unique<InputStreamImpl<CsvFileInput>>(filePathStr, metadataPath);
     } else {
         uasserted(200000600, "Support only pipe/bson or file/csv");
+    }
+}
+
+// Whenever we're done with an input stream, aggregates its IO stats to the existing aggregated IO
+// stats if the same type of aggregated IO stats already exists. Otherwise, adds it to the set of IO
+// stats per type.
+void MultiBsonStreamCursor::processIoStats(std::unique_ptr<IoStats>&& newIoStats) {
+    if (!newIoStats) {
+        return;
+    }
+
+    if (auto it = std::find_if(_ioStatsPerType.begin(),
+                               _ioStatsPerType.end(),
+                               [&](auto&& ioStats) {
+                                   return ioStats->getStorageType() ==
+                                       newIoStats->getStorageType() &&
+                                       ioStats->getFileType() == newIoStats->getFileType();
+                               });
+        it != _ioStatsPerType.end()) {
+        (*it)->aggregate(*newIoStats);
+    } else {
+        _ioStatsPerType.emplace_back(std::move(newIoStats));
     }
 }
 
@@ -219,14 +240,29 @@ boost::optional<Record> MultiBsonStreamCursor::next() {
         }
         ++_streamIdx;
         if (_streamIdx < _numStreams) {
+            processIoStats(_streamReader->releaseIoStats());
             _streamReader = getInputStream();
         }
     }
 
+    processIoStats(_streamReader->releaseIoStats());
     return boost::none;
 }
 
-boost::optional<BSONObj> MultiBsonStreamCursor::getStats() const {
-    return _stats->toBson();
+boost::optional<BSONObj> MultiBsonStreamCursor::getIoStats() {
+    if (_streamReader) {
+        processIoStats(_streamReader->extractIoStatsSnapshot());
+    }
+
+    if (_ioStatsPerType.empty()) {
+        return boost::none;
+    }
+
+    BSONObjBuilder builder;
+    for (auto&& ioStats : _ioStatsPerType) {
+        ioStats->appendTo(builder);
+    }
+
+    return builder.done().getOwned();
 }
 }  // namespace mongo
