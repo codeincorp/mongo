@@ -51,6 +51,9 @@ struct CsvFileIoStats : public IoStats {
     int64_t _invalidBoolean = 0;
     int64_t _nonCompliantWithMetadata = 0;
     int64_t _totalErrorCount = 0;
+    int64_t _inputSize = 0;
+    int64_t _outputSize = 0;  // actually processed bytes
+    int64_t _bsonsReturned = 0;
 
     StorageTypeEnum getStorageType() const override {
         return StorageTypeEnum::file;
@@ -79,6 +82,9 @@ struct CsvFileIoStats : public IoStats {
         sub.append("invalidBoolean", _invalidBoolean);
         sub.append("metadataAndDataDifferentLength", _nonCompliantWithMetadata);
         sub.append("totalErrorCount", _totalErrorCount);
+        sub.append("inputSize", _inputSize);
+        sub.append("outputSize", _outputSize);
+        sub.append("bsonsReturned", _bsonsReturned);
         sub.doneFast();
         return builder;
     }
@@ -99,6 +105,9 @@ struct CsvFileIoStats : public IoStats {
         _outOfRange += other._outOfRange;
         _nonCompliantWithMetadata += other._nonCompliantWithMetadata;
         _totalErrorCount += other._totalErrorCount;
+        _inputSize += other._inputSize;
+        _outputSize += other._outputSize;
+        _bsonsReturned += other._bsonsReturned;
         return *this;
     }
 
