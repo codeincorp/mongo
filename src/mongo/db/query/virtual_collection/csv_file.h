@@ -55,6 +55,7 @@ using Metadata = std::vector<FieldInfo>;
 class CsvFileInput : public StreamableInput {
 public:
     CsvFileInput(const std::string& fileRelativePath, const std::string& metadataRelativePath);
+    CsvFileInput(const std::string& fileRelativePath, BSONObj metadata);
 
     ~CsvFileInput() override;
     const std::string& getAbsolutePath() const override {
@@ -93,8 +94,14 @@ private:
      * @return: vector of FieldInfo containing fieldName(as std::string) and typeInfo(as
      *     CsvFieldType) of the said field. {{"fieldName1",type1},{"fieldName2",type2}...}.
      */
-    Metadata getMetadata(const std::vector<std::string_view>& header);
+    Metadata getMetadata(const std::string& metadataRelativePath);
 
+    /**
+     */
+    Metadata getMetadata(BSONObj metadataObj);
+
+    /**
+     */
     /**
      * Returns each record which is compliant with RFC4180. This method handles the double quote
      * pair and the escaped double quote inside a quoted field. This greatly simplifies the
@@ -121,7 +128,6 @@ private:
     boost::optional<BSONObj> readBsonObj();
 
     std::string _fileAbsolutePath;
-    std::string _metadataAbsolutePath;
     int _fd = -1;
     size_t _fileSize = 0;
     // The pointer to file data which the file is mapped to.

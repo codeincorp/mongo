@@ -594,21 +594,19 @@ TEST_F(CsvFileInputTest, CollectOutOfRange) {
 }
 
 TEST_F(CsvFileInputTest, FailByFileDoesNotExist) {
-    CsvFileInput input("DNE.csv", "DNE.txt");
+    ASSERT_THROWS_CODE(CsvFileInput("DNE.csv", "DNE.txt"), DBException, ErrorCodes::FileNotOpen);
+
+    ASSERT_THROWS_CODE(CsvFileInput("DNE1.csv", "DNE1.txt"), DBException, ErrorCodes::FileNotOpen);
+
+    CsvFileInput input("DNE2.csv", "csv_test/badOid.txt");
     ASSERT_THROWS_CODE(input.open(), DBException, ErrorCodes::FileNotOpen);
-
-    CsvFileInput input1("DNE1.csv", "DNE1.txt");
-    ASSERT_THROWS_CODE(input1.open(), DBException, ErrorCodes::FileNotOpen);
-
-    CsvFileInput input2("DNE2.csv", "csv_test/badOid.txt");
-    ASSERT_THROWS_CODE(input2.open(), DBException, ErrorCodes::FileNotOpen);
 }
 
 TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
     ASSERT_THROWS_CODE(
-        CsvFileInput("../diffLength.csv", "../csv_test/diffLength.txt"), DBException, 200000400);
+        CsvFileInput("../diffLength.csv", "../csv_test/diffLength.txt"), DBException, 200000401);
 
-    ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000400);
+    ASSERT_THROWS_CODE(CsvFileInput("../DNE1.csv", "../DNE1.txt"), DBException, 200000401);
 
     ASSERT_THROWS_CODE(
         CsvFileInput("basicRead.csv",
@@ -618,17 +616,21 @@ TEST_F(CsvFileInputTest, FailByBadFilePathFormat) {
 }
 
 TEST_F(CsvFileInputTest, FailByBadMetadata) {
-    CsvFileInput input("csv_test/badMetadata.csv", "csv_test/badMetadata.txt");
-    ASSERT_THROWS_CODE(input.open(), DBException, 200000403);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata.txt"),
+                       DBException,
+                       200000403);
 
-    CsvFileInput input1("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt");
-    ASSERT_THROWS_CODE(input1.open(), DBException, 200000403);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata1.txt"),
+                       DBException,
+                       200000403);
 
-    CsvFileInput input2("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt");
-    ASSERT_THROWS_CODE(input2.open(), DBException, 200000404);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata2.txt"),
+                       DBException,
+                       200000404);
 
-    CsvFileInput input3("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt");
-    ASSERT_THROWS_CODE(input3.open(), DBException, 200000403);
+    ASSERT_THROWS_CODE(CsvFileInput("csv_test/badMetadata.csv", "csv_test/badMetadata3.txt"),
+                       DBException,
+                       200000403);
 }
 
 TEST_F(CsvFileInputTest, ErrorCount) {
