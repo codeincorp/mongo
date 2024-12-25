@@ -42,6 +42,7 @@
 #include "mongo/crypto/encryption_fields_gen.h"
 #include "mongo/db/catalog/clustered_collection_options_gen.h"
 #include "mongo/db/catalog/collection_options_gen.h"
+#include "mongo/db/catalog/external_data_source_options_gen.h"
 #include "mongo/db/jsobj.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/pipeline/change_stream_pre_and_post_images_options_gen.h"
@@ -177,6 +178,9 @@ struct CollectionOptions {
 
     // When 'true', will use the same recordIds across all nodes in the replica set.
     bool recordIdsReplicated = false;
+
+    // The options for a virtual collection
+    boost::optional<VirtualCollectionOptions> vopts;
 };
 
 Status validateChangeStreamPreAndPostImagesOptionIsPermitted(const NamespaceString& ns);

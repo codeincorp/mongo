@@ -54,8 +54,8 @@ const coll = db.ext_csv;
 
     const expected = [kMaryMiller, kJohnWilliam, kJamesRobert];
     const res = coll.find().toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.eq(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.eq(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testBasicCsvFileWithMetadata() {
@@ -76,8 +76,8 @@ const coll = db.ext_csv;
 
     const expected = [kMaryMiller, kJohnWilliam, kJamesRobert];
     const res = coll.find().toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.eq(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.eq(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testDoubleCsvFiles() {
@@ -96,8 +96,8 @@ const coll = db.ext_csv;
     const allDocs = [kMaryMiller, kJohnWilliam, kJamesRobert];
     const expected = allDocs.concat(allDocs);
     const res = coll.find().toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.eq(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.eq(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testDoubleCsvFilesWithMetadata() {
@@ -122,8 +122,8 @@ const coll = db.ext_csv;
     const allDocs = [kMaryMiller, kJohnWilliam, kJamesRobert];
     const expected = allDocs.concat(allDocs);
     const res = coll.find().toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.eq(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.eq(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testFilterSanity() {
@@ -138,8 +138,8 @@ const coll = db.ext_csv;
 
     const expected = [kJohnWilliam, kJamesRobert];
     const res = coll.find({age: {$gt: 10}}).toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.eq(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.eq(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testFilterSanityWithMetadata() {
@@ -160,8 +160,8 @@ const coll = db.ext_csv;
 
     const expected = [kJohnWilliam, kJamesRobert];
     const res = coll.find({age: {$gt: 10}}).toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.eq(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.eq(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testGroupSanity1() {
@@ -176,8 +176,8 @@ const coll = db.ext_csv;
 
     const expected = [{_id: false, c: 1}, {_id: true, c: 2}];
     const res = coll.aggregate([{$group: {_id: "$retired", c: {$sum: 1}}}]).toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testGroupSanity1WithMetadata() {
@@ -198,8 +198,8 @@ const coll = db.ext_csv;
 
     const expected = [{_id: false, c: 1}, {_id: true, c: 2}];
     const res = coll.aggregate([{$group: {_id: "$retired", c: {$sum: 1}}}]).toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testGroupSanity2() {
@@ -221,8 +221,8 @@ const coll = db.ext_csv;
     const res =
         coll.aggregate([{$group: {_id: {$concat: ["$firstName", " ", "$lastName"]}, c: {$sum: 1}}}])
             .toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testGroupSanity2Metadata() {
@@ -250,8 +250,8 @@ const coll = db.ext_csv;
     const res =
         coll.aggregate([{$group: {_id: {$concat: ["$firstName", " ", "$lastName"]}, c: {$sum: 1}}}])
             .toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testSortSanity() {
@@ -266,8 +266,8 @@ const coll = db.ext_csv;
 
     const expected = [kJamesRobert, kMaryMiller, kJohnWilliam];
     const res = coll.find({}, {}, {sort: {subscriptionDate: -1}}).toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testSortSanityWithMetadata() {
@@ -288,8 +288,8 @@ const coll = db.ext_csv;
 
     const expected = [kJamesRobert, kMaryMiller, kJohnWilliam];
     const res = coll.find({}, {}, {sort: {subscriptionDate: -1}}).toArray();
-    assert.eq(res.length, expected.length, `Expected ${tojson(res)} but got ${tojson(expected)}`);
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.eq(res.length, expected.length, `Expected ${tojson(expected)} but got ${tojson(res)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testSortLimitSanity() {
@@ -304,7 +304,7 @@ const coll = db.ext_csv;
 
     const expected = [kMaryMiller];
     const res = coll.find({}, {}, {sort: {age: 1}}).limit(1).toArray();
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testSortLimitSanityWithMetadata() {
@@ -325,7 +325,7 @@ const coll = db.ext_csv;
 
     const expected = [kMaryMiller];
     const res = coll.find({}, {}, {sort: {age: 1}}).limit(1).toArray();
-    assert.sameMembers(res, expected, `Expected ${tojson(res)} but got ${tojson(expected)}`);
+    assert.sameMembers(res, expected, `Expected ${tojson(expected)} but got ${tojson(res)}`);
 })();
 
 (function testUnsupportedFileType() {

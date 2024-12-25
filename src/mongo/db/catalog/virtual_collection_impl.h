@@ -81,12 +81,13 @@ public:
     static std::shared_ptr<Collection> make(OperationContext* opCtx,
                                             const NamespaceString& nss,
                                             const CollectionOptions& options,
-                                            const VirtualCollectionOptions& vopts);
+                                            RecordId catalogId = RecordId());
 
     // Constructor for a virtual collection.
     explicit VirtualCollectionImpl(OperationContext* opCtx,
                                    const NamespaceString& nss,
                                    const CollectionOptions& options,
+                                   RecordId catalogId,
                                    std::unique_ptr<ExternalRecordStore> recordStore);
 
     VirtualCollectionImpl(const VirtualCollectionImpl&) = default;
@@ -127,7 +128,7 @@ public:
     }
 
     RecordId getCatalogId() const final {
-        return RecordId();
+        return _catalogId;
     }
 
     UUID uuid() const final {
@@ -593,6 +594,7 @@ private:
 
     NamespaceString _nss;
     CollectionOptions _options;
+    RecordId _catalogId;
 
     std::shared_ptr<SharedState> _shared;
     clonable_ptr<IndexCatalog> _indexCatalog;

@@ -830,12 +830,14 @@ Status createCollection(OperationContext* opCtx,
 }
 
 Status createCollection(OperationContext* opCtx, const CreateCommand& cmd) {
+    auto options = CollectionOptions::fromCreateCommand(cmd);
+    boost::optional<BSONObj> idIndex;
     if (auto vopts = cmd.getVirtual()) {
-        return createVirtualCollection(opCtx, cmd.getNamespace(), *vopts);
+        options.setNoIdIndex();
+    } else {
+        idIndex = std::exchange(options.idIndex, {});
     }
 
-    auto options = CollectionOptions::fromCreateCommand(cmd);
-    auto idIndex = std::exchange(options.idIndex, {});
     bool hasExplicitlyDisabledClustering = cmd.getClusteredIndex() &&
         holds_alternative<bool>(*cmd.getClusteredIndex()) && !get<bool>(*cmd.getClusteredIndex());
     if (!hasExplicitlyDisabledClustering) {

@@ -77,6 +77,7 @@ mongo_cc_library(
         "//src/mongo/db/catalog:collection_options.h",
         "//src/mongo/db/catalog:collection_options_gen",
         "//src/mongo/db/catalog:collection_options_validation.h",
+        "//src/mongo/db/catalog:external_data_source_options_gen",
         "//src/mongo/db/catalog/util:partitioned.h",
         "//src/mongo/db/commands:server_status_metric.h",
         "//src/mongo/db/commands:test_commands_enabled.h",

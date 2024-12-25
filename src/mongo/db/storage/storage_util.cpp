@@ -202,12 +202,15 @@ Status dropCollection(OperationContext* opCtx,
                       const NamespaceString& nss,
                       RecordId collectionCatalogId,
                       std::shared_ptr<Ident> ident) {
-    invariant(ident);
-
     // Run the first phase of drop to remove the catalog entry.
     Status status = DurableCatalog::get(opCtx)->dropCollection(opCtx, collectionCatalogId);
     if (!status.isOK()) {
         return status;
+    }
+
+    // A virtual collection does not have a storage engine table.
+    if (!ident) {
+        return Status::OK();
     }
 
     // The OperationContext may not be valid when the RecoveryUnit executes the onCommit handlers.
