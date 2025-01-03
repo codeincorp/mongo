@@ -478,13 +478,11 @@ Status DatabaseImpl::_finishDropCollection(OperationContext* opCtx,
                                            Collection* collection) const {
     UUID uuid = collection->uuid();
 
-    // Reduce log verbosity for virtual collections
-    auto debugLevel = collection->getSharedIdent() ? 0 : 1;
+    LOGV2_DEBUG(20318, 0, "Finishing collection drop", logAttrs(nss), "uuid"_attr = uuid);
 
-    LOGV2_DEBUG(20318, debugLevel, "Finishing collection drop", logAttrs(nss), "uuid"_attr = uuid);
-
-    // A virtual collection does not have a durable catalog entry.
-    if (auto sharedIdent = collection->getSharedIdent()) {
+    // A non-durable virtual collection does not have a durable catalog entry.
+    if (auto catalogId = collection->getCatalogId(); !catalogId.isNull()) {
+        auto sharedIdent = collection->getSharedIdent();
         auto status = catalog::dropCollection(
             opCtx, collection->ns(), collection->getCatalogId(), sharedIdent);
         if (!status.isOK())
@@ -614,19 +612,6 @@ Collection* DatabaseImpl::createCollection(OperationContext* opCtx,
         opCtx, nss, options, createIdIndex, idIndex, fromMigrate, /*vopts=*/boost::none);
 }
 
-Collection* DatabaseImpl::createVirtualCollection(OperationContext* opCtx,
-                                                  const NamespaceString& nss,
-                                                  const CollectionOptions& opts,
-                                                  const VirtualCollectionOptions& vopts) const {
-    return _createCollection(opCtx,
-                             nss,
-                             opts,
-                             /*createIdIndex=*/false,
-                             /*idIndex=*/BSONObj(),
-                             /*fromMigrate=*/false,
-                             vopts);
-}
-
 Collection* DatabaseImpl::_createCollection(
     OperationContext* opCtx,
     const NamespaceString& nss,
@@ -634,7 +619,7 @@ Collection* DatabaseImpl::_createCollection(
     bool createIdIndex,
     const BSONObj& idIndex,
     bool fromMigrate,
-    const boost::optional<VirtualCollectionOptions>& vopts) const {
+    const boost::optional<VirtualCollectionOptions>&) const {
     invariant(!options.isView());
 
     invariant(shard_role_details::getLocker(opCtx)->isCollectionLockedForMode(nss, MODE_IX));
@@ -717,11 +702,8 @@ Collection* DatabaseImpl::_createCollection(
     assertNoMovePrimaryInProgress(opCtx, nss);
     audit::logCreateCollection(opCtx->getClient(), nss);
 
-    // Reduce log verbosity for virtual collections
-    auto debugLevel = vopts ? 1 : 0;
-
     LOGV2_DEBUG(20320,
-                debugLevel,
+                0,
                 "createCollection",
                 logAttrs(nss),
                 "uuidDisposition"_attr = (generatedUUID ? "generated" : "provided"),
@@ -730,29 +712,30 @@ Collection* DatabaseImpl::_createCollection(
 
     // Create Collection object
     auto ownedCollection = [&]() -> std::shared_ptr<Collection> {
-        if (!vopts) {
-            if (CollectionCatalog::get(opCtx)->lookupCollectionByNamespace(opCtx, nss)) {
-                throwWriteConflictException(str::stream()
-                                            << "Namespace '" << nss.toStringForErrorMsg()
-                                            << "' is already in use.");
-            }
-
-            auto storageEngine = opCtx->getServiceContext()->getStorageEngine();
-            std::pair<RecordId, std::unique_ptr<RecordStore>> catalogIdRecordStorePair =
-                uassertStatusOK(storageEngine->getCatalog()->createCollection(
-                    opCtx, nss, optionsWithUUID, true /*allocateDefaultSpace*/));
-            auto& catalogId = catalogIdRecordStorePair.first;
-
-            auto catalogEntry = DurableCatalog::get(opCtx)->getParsedCatalogEntry(opCtx, catalogId);
-            auto metadata = catalogEntry->metadata;
-
-            return Collection::Factory::get(opCtx)->make(
-                opCtx, nss, catalogId, metadata, std::move(catalogIdRecordStorePair.second));
-        } else {
-            // Virtual collection stays only in memory and its metadata need not persist on disk and
-            // therefore we bypass DurableCatalog.
-            return VirtualCollectionImpl::make(opCtx, nss, optionsWithUUID, *vopts);
+        auto vopts = optionsWithUUID.vopts;
+        if (vopts && !vopts->getDurable()) {
+            // Non-durable virtual collection stays only in memory and its metadata need not persist
+            // on disk and therefore we bypass DurableCatalog.
+            return VirtualCollectionImpl::make(opCtx, nss, optionsWithUUID);
         }
+
+        if (CollectionCatalog::get(opCtx)->lookupCollectionByNamespace(opCtx, nss)) {
+            throwWriteConflictException(str::stream() << "Namespace '" << nss.toStringForErrorMsg()
+                                                      << "' is already in use.");
+        }
+
+        auto storageEngine = opCtx->getServiceContext()->getStorageEngine();
+        // We don't need disk space for a virtual collection.
+        std::pair<RecordId, std::unique_ptr<RecordStore>> catalogIdRecordStorePair =
+            uassertStatusOK(storageEngine->getCatalog()->createCollection(
+                opCtx, nss, optionsWithUUID, !vopts /*allocateDefaultSpace*/));
+        auto& catalogId = catalogIdRecordStorePair.first;
+
+        auto catalogEntry = DurableCatalog::get(opCtx)->getParsedCatalogEntry(opCtx, catalogId);
+        auto metadata = catalogEntry->metadata;
+
+        return Collection::Factory::get(opCtx)->make(
+            opCtx, nss, catalogId, metadata, std::move(catalogIdRecordStorePair.second));
     }();
     auto collection = ownedCollection.get();
     ownedCollection->init(opCtx);
@@ -944,37 +927,6 @@ Status DatabaseImpl::userCreateNS(OperationContext* opCtx,
                                 << nss.toStringForErrorMsg()
                                 << ". Options: " << collectionOptions.toBSON());
     }
-
-    return Status::OK();
-}
-
-Status DatabaseImpl::userCreateVirtualNS(OperationContext* opCtx,
-                                         const NamespaceString& nss,
-                                         CollectionOptions opts,
-                                         const VirtualCollectionOptions& vopts) const {
-    LOGV2_DEBUG(6968505,
-                1,
-                "create collection {namespace} {collectionOptions}",
-                logAttrs(nss),
-                "collectionOptions"_attr = opts.toBSON());
-    if (!NamespaceString::validCollectionComponent(nss))
-        return Status(ErrorCodes::InvalidNamespace,
-                      str::stream() << "invalid ns: " << nss.toStringForErrorMsg());
-
-    // Validate the collation, if there is one.
-    if (auto swCollator = validateCollator(opCtx, opts); !swCollator.isOK()) {
-        return swCollator.getStatus();
-    }
-
-    invariant(_createCollection(opCtx,
-                                nss,
-                                opts,
-                                /*createDefaultIndexes=*/false,
-                                /*idIndex=*/BSONObj(),
-                                /*fromMigrate=*/false,
-                                vopts),
-              str::stream() << "Collection creation failed after validating options: "
-                            << nss.toStringForErrorMsg() << ". Options: " << opts.toBSON());
 
     return Status::OK();
 }

@@ -67,14 +67,6 @@ public:
                                 const BSONObj& idIndex = BSONObj(),
                                 bool fromMigrate = false) const = 0;
 
-    /**
-     * Creates the virtual namespace 'fullns' according to 'opts' and 'vopts'.
-     */
-    virtual Status userCreateVirtualNS(OperationContext* opCtx,
-                                       const NamespaceString& fullns,
-                                       CollectionOptions opts,
-                                       const VirtualCollectionOptions& vopts) const = 0;
-
     Database() = default;
 
     // must call close first
@@ -135,19 +127,6 @@ public:
                                          bool createDefaultIndexes = true,
                                          const BSONObj& idIndex = BSONObj(),
                                          bool fromMigrate = false) const = 0;
-
-    /**
-     * A MODE_IX collection lock must be held for this call. Throws a WriteConflictException error
-     * if the collection already exists (say if another thread raced to create it).
-     *
-     * Surrounding writeConflictRetry loops must encompass checking that the collection exists as
-     * well as creating it. Otherwise the loop will endlessly throw WCEs: the caller must check that
-     * the collection exists to break free.
-     */
-    virtual Collection* createVirtualCollection(OperationContext* opCtx,
-                                                const NamespaceString& nss,
-                                                const CollectionOptions& opts,
-                                                const VirtualCollectionOptions& vopts) const = 0;
 
     virtual StatusWith<std::unique_ptr<CollatorInterface>> validateCollator(
         OperationContext* opCtx, CollectionOptions& opts) const = 0;

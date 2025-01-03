@@ -471,7 +471,7 @@ void StorageEngineImpl::_initCollection(OperationContext* opCtx,
         rs = nullptr;
     } else {
         rs = _engine->getRecordStore(opCtx, nss, ident, md->options);
-        invariant(rs);
+        invariant(md->options.vopts || rs);
     }
 
     auto collectionFactory = Collection::Factory::get(getGlobalServiceContext());

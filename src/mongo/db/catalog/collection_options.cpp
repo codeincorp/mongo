@@ -322,6 +322,16 @@ StatusWith<CollectionOptions> CollectionOptions::parse(const BSONObj& options, P
                 return {ErrorCodes::TypeMismatch, "'recordIdsReplicated' must be a boolean."};
             }
             collectionOptions.recordIdsReplicated = e.Bool();
+        } else if (fieldName == "virtual") {
+            if (e.type() != mongo::Object) {
+                return {ErrorCodes::TypeMismatch, "'virtual' must be an object."};
+            }
+            try {
+                collectionOptions.vopts = VirtualCollectionOptions::parse(
+                    IDLParserContext{"CollectionOptions::parse"}, e.Obj().getOwned());
+            } catch (const DBException& ex) {
+                return ex.toStatus();
+            }
         } else if (!createdOn24OrEarlier && !mongo::isGenericArgument(fieldName)) {
             return Status(ErrorCodes::InvalidOptions,
                           str::stream()
@@ -413,6 +423,10 @@ CollectionOptions CollectionOptions::fromCreateCommand(const CreateCommand& cmd)
 
     if (auto recordIdsReplicated = cmd.getRecordIdsReplicated()) {
         options.recordIdsReplicated = *recordIdsReplicated;
+    }
+
+    if (auto vopts = cmd.getVirtual()) {
+        options.vopts = vopts;
     }
 
     return options;
@@ -518,6 +532,10 @@ void CollectionOptions::appendBSON(BSONObjBuilder* builder,
 
     if (recordIdsReplicated && shouldAppend(CreateCommand::kRecordIdsReplicatedFieldName)) {
         builder->appendBool(CreateCommand::kRecordIdsReplicatedFieldName, true);
+    }
+
+    if (vopts && shouldAppend(CreateCommand::kVirtualFieldName)) {
+        builder->append(CreateCommand::kVirtualFieldName, vopts->toBSON());
     }
 }
 

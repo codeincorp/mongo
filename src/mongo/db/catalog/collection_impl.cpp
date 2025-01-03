@@ -59,6 +59,7 @@
 #include "mongo/db/catalog/index_key_validate.h"
 #include "mongo/db/catalog/storage_engine_collection_options_flags_parser.h"
 #include "mongo/db/catalog/uncommitted_multikey.h"
+#include "mongo/db/catalog/virtual_collection_impl.h"
 #include "mongo/db/client.h"
 #include "mongo/db/collection_crud/capped_visibility.h"
 #include "mongo/db/concurrency/lock_manager_defs.h"
@@ -368,8 +369,12 @@ std::shared_ptr<Collection> CollectionImpl::FactoryImpl::make(
     RecordId catalogId,
     std::shared_ptr<BSONCollectionCatalogEntry::MetaData> metadata,
     std::unique_ptr<RecordStore> rs) const {
-    return std::make_shared<CollectionImpl>(
-        opCtx, nss, std::move(catalogId), std::move(metadata), std::move(rs));
+    if (metadata->options.vopts) {
+        return VirtualCollectionImpl::make(opCtx, nss, metadata->options, std::move(catalogId));
+    } else {
+        return std::make_shared<CollectionImpl>(
+            opCtx, nss, std::move(catalogId), std::move(metadata), std::move(rs));
+    }
 }
 
 std::shared_ptr<Collection> CollectionImpl::clone() const {

@@ -1584,7 +1584,10 @@ std::unique_ptr<RecordStore> WiredTigerKVEngine::getRecordStore(OperationContext
                                                                 StringData ident,
                                                                 const CollectionOptions& options) {
     std::unique_ptr<WiredTigerRecordStore> ret;
-    if (nss.isOplog()) {
+    if (options.vopts) {
+        // Let the virtual collection factory create a record store.
+        return nullptr;
+    } else if (nss.isOplog()) {
         ret = std::make_unique<WiredTigerRecordStore::Oplog>(
             this,
             WiredTigerRecoveryUnit::get(*shard_role_details::getRecoveryUnit(opCtx)),

@@ -608,7 +608,7 @@ StatusWith<std::pair<RecordId, std::unique_ptr<RecordStore>>> DurableCatalog::cr
         });
 
     auto rs = _engine->getEngine()->getRecordStore(opCtx, nss, entry.ident, options);
-    invariant(rs);
+    invariant(options.vopts || rs);
 
     return std::pair<RecordId, std::unique_ptr<RecordStore>>(entry.catalogId, std::move(rs));
 }
@@ -731,7 +731,7 @@ StatusWith<DurableCatalog::ImportResult> DurableCatalog::importCollection(
     }
 
     auto rs = _engine->getEngine()->getRecordStore(opCtx, nss, entry.ident, md.options);
-    invariant(rs);
+    invariant(md.options.vopts || rs);
 
     return DurableCatalog::ImportResult(entry.catalogId, std::move(rs), md.options.uuid.value());
 }

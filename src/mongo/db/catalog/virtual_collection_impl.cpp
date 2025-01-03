@@ -43,9 +43,11 @@ namespace mongo {
 VirtualCollectionImpl::VirtualCollectionImpl(OperationContext* opCtx,
                                              const NamespaceString& nss,
                                              const CollectionOptions& options,
+                                             RecordId catalogId,
                                              std::unique_ptr<ExternalRecordStore> recordStore)
     : _nss(nss),
       _options(options),
+      _catalogId(std::move(catalogId)),
       _shared(std::make_shared<SharedState>(
           std::move(recordStore), CollectionImpl::parseCollation(opCtx, nss, options.collation))),
       _indexCatalog(std::make_unique<IndexCatalogImpl>()) {
@@ -57,8 +59,12 @@ VirtualCollectionImpl::VirtualCollectionImpl(OperationContext* opCtx,
 std::shared_ptr<Collection> VirtualCollectionImpl::make(OperationContext* opCtx,
                                                         const NamespaceString& nss,
                                                         const CollectionOptions& options,
-                                                        const VirtualCollectionOptions& vopts) {
+                                                        RecordId catalogId) {
     return std::make_shared<VirtualCollectionImpl>(
-        opCtx, nss, options, std::make_unique<ExternalRecordStore>(options.uuid, vopts));
+        opCtx,
+        nss,
+        options,
+        std::move(catalogId),
+        std::make_unique<ExternalRecordStore>(options.uuid, *options.vopts));
 }
 }  // namespace mongo
