@@ -478,8 +478,8 @@ TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithOneSource) {
 
     Lock::GlobalLock lk(opCtx.get(), MODE_X);  // Satisfy low-level locking invariants.
     VirtualCollectionOptions reqVcollOpts;
-    reqVcollOpts.getDataSources().emplace_back(
-        kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson);
+    reqVcollOpts.setDataSources(std::vector<ExternalDataSourceInfo>{
+        {kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson}});
     ASSERT_OK(createVirtualCollection(opCtx.get(), vcollNss, reqVcollOpts));
     ASSERT_TRUE(getVirtualCollection(opCtx.get(), vcollNss));
 
@@ -501,10 +501,9 @@ TEST_F(CreateVirtualCollectionTest, VirtualCollectionOptionsWithMultiSource) {
 
     Lock::GlobalLock lk(opCtx.get(), MODE_X);  // Satisfy low-level locking invariants.
     VirtualCollectionOptions reqVcollOpts;
-    reqVcollOpts.getDataSources().emplace_back(
-        kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson);
-    reqVcollOpts.getDataSources().emplace_back(
-        kValidUrl2, StorageTypeEnum::pipe, FileTypeEnum::bson);
+    reqVcollOpts.setDataSources(std::vector<ExternalDataSourceInfo>{
+        {kValidUrl1, StorageTypeEnum::pipe, FileTypeEnum::bson},
+        {kValidUrl2, StorageTypeEnum::pipe, FileTypeEnum::bson}});
 
     ASSERT_OK(createVirtualCollection(opCtx.get(), vcollNss, reqVcollOpts));
     ASSERT_TRUE(getVirtualCollection(opCtx.get(), vcollNss));

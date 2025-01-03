@@ -675,12 +675,10 @@ Status _createTimeseries(OperationContext* opCtx,
     return Status::OK();
 }
 
-Status _createCollection(
-    OperationContext* opCtx,
-    const NamespaceString& nss,
-    const CollectionOptions& collectionOptions,
-    const boost::optional<BSONObj>& idIndex,
-    const boost::optional<VirtualCollectionOptions>& virtualCollectionOptions = boost::none) {
+Status _createCollection(OperationContext* opCtx,
+                         const NamespaceString& nss,
+                         const CollectionOptions& collectionOptions,
+                         const boost::optional<BSONObj>& idIndex) {
     return writeConflictRetry(opCtx, "create", nss, [&] {
         // If a change collection is to be created, that is, the change streams are being enabled
         // for a tenant, acquire exclusive tenant lock.
@@ -731,9 +729,7 @@ Status _createCollection(
         // Even though 'collectionOptions' is passed by rvalue reference, it is not safe to move
         // because 'userCreateNS' may throw a WriteConflictException.
         if (idIndex == boost::none || collectionOptions.clusteredIndex) {
-            status = virtualCollectionOptions
-                ? db->userCreateVirtualNS(opCtx, nss, collectionOptions, *virtualCollectionOptions)
-                : db->userCreateNS(opCtx, nss, collectionOptions, /*createIdIndex=*/false);
+            status = db->userCreateNS(opCtx, nss, collectionOptions, /*createIdIndex=*/false);
         } else {
             bool createIdIndex = true;
             if (MONGO_unlikely(skipIdIndex.shouldFail())) {
@@ -1066,7 +1062,8 @@ Status createVirtualCollection(OperationContext* opCtx,
                                const VirtualCollectionOptions& vopts) {
     CollectionOptions options;
     options.setNoIdIndex();
-    return _createCollection(opCtx, ns, options, boost::none, vopts);
+    options.vopts = vopts;
+    return _createCollection(opCtx, ns, options, boost::none);
 }
 
 }  // namespace mongo

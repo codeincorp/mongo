@@ -97,22 +97,12 @@ public:
                         const BSONObj& idIndex,
                         bool fromMigrate) const final;
 
-    Status userCreateVirtualNS(OperationContext* opCtx,
-                               const NamespaceString& fullns,
-                               CollectionOptions opts,
-                               const VirtualCollectionOptions& vopts) const final;
-
     Collection* createCollection(OperationContext* opCtx,
                                  const NamespaceString& nss,
                                  const CollectionOptions& options = CollectionOptions(),
                                  bool createDefaultIndexes = true,
                                  const BSONObj& idIndex = BSONObj(),
                                  bool fromMigrate = false) const final;
-
-    Collection* createVirtualCollection(OperationContext* opCtx,
-                                        const NamespaceString& nss,
-                                        const CollectionOptions& opts,
-                                        const VirtualCollectionOptions& vopts) const final;
 
     StatusWith<std::unique_ptr<CollatorInterface>> validateCollator(
         OperationContext* opCtx, CollectionOptions& opts) const final;

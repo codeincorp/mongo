@@ -612,19 +612,6 @@ Collection* DatabaseImpl::createCollection(OperationContext* opCtx,
         opCtx, nss, options, createIdIndex, idIndex, fromMigrate, /*vopts=*/boost::none);
 }
 
-Collection* DatabaseImpl::createVirtualCollection(OperationContext* opCtx,
-                                                  const NamespaceString& nss,
-                                                  const CollectionOptions& opts,
-                                                  const VirtualCollectionOptions& vopts) const {
-    return _createCollection(opCtx,
-                             nss,
-                             opts,
-                             /*createIdIndex=*/false,
-                             /*idIndex=*/BSONObj(),
-                             /*fromMigrate=*/false,
-                             vopts);
-}
-
 Collection* DatabaseImpl::_createCollection(
     OperationContext* opCtx,
     const NamespaceString& nss,
@@ -940,37 +927,6 @@ Status DatabaseImpl::userCreateNS(OperationContext* opCtx,
                                 << nss.toStringForErrorMsg()
                                 << ". Options: " << collectionOptions.toBSON());
     }
-
-    return Status::OK();
-}
-
-Status DatabaseImpl::userCreateVirtualNS(OperationContext* opCtx,
-                                         const NamespaceString& nss,
-                                         CollectionOptions opts,
-                                         const VirtualCollectionOptions& vopts) const {
-    LOGV2_DEBUG(6968505,
-                1,
-                "create collection {namespace} {collectionOptions}",
-                logAttrs(nss),
-                "collectionOptions"_attr = opts.toBSON());
-    if (!NamespaceString::validCollectionComponent(nss))
-        return Status(ErrorCodes::InvalidNamespace,
-                      str::stream() << "invalid ns: " << nss.toStringForErrorMsg());
-
-    // Validate the collation, if there is one.
-    if (auto swCollator = validateCollator(opCtx, opts); !swCollator.isOK()) {
-        return swCollator.getStatus();
-    }
-
-    invariant(_createCollection(opCtx,
-                                nss,
-                                opts,
-                                /*createDefaultIndexes=*/false,
-                                /*idIndex=*/BSONObj(),
-                                /*fromMigrate=*/false,
-                                vopts),
-              str::stream() << "Collection creation failed after validating options: "
-                            << nss.toStringForErrorMsg() << ". Options: " << opts.toBSON());
 
     return Status::OK();
 }
